@@ -48,6 +48,10 @@ func (c *FakeHobbyfarmV1) Environments() v1.EnvironmentInterface {
 	return &FakeEnvironments{c}
 }
 
+func (c *FakeHobbyfarmV1) OneTimeAccessCodes() v1.OneTimeAccessCodeInterface {
+	return &FakeOneTimeAccessCodes{c}
+}
+
 func (c *FakeHobbyfarmV1) Scenarios() v1.ScenarioInterface {
 	return &FakeScenarios{c}
 }
