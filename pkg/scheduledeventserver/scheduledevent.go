@@ -179,16 +179,22 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 	oneTimeAccessCode := r.PostFormValue("one_time_access_code")
 	if len(oneTimeAccessCode) > 0 {
 		quantity, _ := strconv.Atoi(oneTimeAccessCode)
-		/* acc */_, err := accesscode.NewAccessCodeClient(s.hfClientSet,context.TODO())
+		acc, err := accesscode.NewAccessCodeClient(s.hfClientSet, context.TODO())
 		if err != nil {
 			util.ReturnHTTPMessage(w, r, 400, "badrequest", "corrupted one time access code")
 			return
 		}
+		var list hfv1.OneTimeAccessCodeList
 		for i := 0; i < quantity; i ++ {
-			//otac := acc.GenerateRandomOneTimeAccessCode(quantity, accessCode)
+			otac := acc.GenerateRandomOneTimeAccessCode(quantity, accessCode)
+			list.Items = append(list.Items, otac)
 		}
-		
-		/* s.hfClientSet.HobbyfarmV1().One */
+		otac := hfv1.OneTimeAccessCode{
+			Spec: hfv1.OneTimeAccessCodeSpec{
+				AccessCodeIdentifier: oneTimeAccessCode,
+			},
+		}
+		s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, &otac, metav1.CreateOptions{})
 	}
 	var onDemand bool
 	onDemandRaw := r.PostFormValue("on_demand")

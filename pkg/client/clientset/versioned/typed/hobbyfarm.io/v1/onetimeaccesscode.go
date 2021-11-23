@@ -30,13 +30,13 @@ import (
 	rest "k8s.io/client-go/rest"
 )
 
-// OneTimeAccessCodesGetter has a method to return a AccessCodeInterface.
+// OneTimeAccessCodesGetter has a method to return a OneTimeAccessCodeInterface.
 // A group's client should implement this interface.
 type OneTimeAccessCodesGetter interface {
-	AccessCodes() AccessCodeInterface
+	OneTimeAccessCodes() OneTimeAccessCodeInterface
 }
 
-// OneTimeAccessCodeInterface has methods to work with AccessCode resources.
+// OneTimeAccessCodeInterface has methods to work with OneTimeAccessCode resources.
 type OneTimeAccessCodeInterface interface {
 	Create(ctx context.Context, accessCode *v1.OneTimeAccessCode, opts metav1.CreateOptions) (*v1.OneTimeAccessCode, error)
 	Update(ctx context.Context, accessCode *v1.OneTimeAccessCode, opts metav1.UpdateOptions) (*v1.OneTimeAccessCode, error)
@@ -49,19 +49,19 @@ type OneTimeAccessCodeInterface interface {
 	AccessCodeExpansion
 }
 
-// accessCodes implements AccessCodeInterface
+// oneTimeAccessCodes implements OneTimeAccessCodeInterface
 type oneTimeAccessCodes struct {
 	client rest.Interface
 }
 
-// newAccessCodes returns a AccessCodes
+// newOneTimeAccessCodes returns a OneTimeAccessCodes
 func newOneTimeAccessCodes(c *HobbyfarmV1Client) *oneTimeAccessCodes {
 	return &oneTimeAccessCodes{
 		client: c.RESTClient(),
 	}
 }
 
-// Get takes name of the accessCode, and returns the corresponding accessCode object, and an error if there is any.
+// Get takes name of the accessCode, and returns the corresponding OneTimeAccessCode object, and an error if there is any.
 func (c *oneTimeAccessCodes) Get(ctx context.Context, name string, options metav1.GetOptions) (result *v1.OneTimeAccessCode, err error) {
 	result = &v1.OneTimeAccessCode{}
 	err = c.client.Get().
@@ -73,7 +73,7 @@ func (c *oneTimeAccessCodes) Get(ctx context.Context, name string, options metav
 	return
 }
 
-// List takes label and field selectors, and returns the list of AccessCodes that match those selectors.
+// List takes label and field selectors, and returns the list of OneTimeAccessCodes that match those selectors.
 func (c *oneTimeAccessCodes) List(ctx context.Context, opts metav1.ListOptions) (result *v1.OneTimeAccessCodeList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
@@ -89,7 +89,7 @@ func (c *oneTimeAccessCodes) List(ctx context.Context, opts metav1.ListOptions) 
 	return
 }
 
-// Watch returns a watch.Interface that watches the requested oneTimeAccessCodes.
+// Watch returns a watch.Interface that watches the requested OneTimeAccessCodes.
 func (c *oneTimeAccessCodes) Watch(ctx context.Context, opts metav1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
@@ -103,7 +103,7 @@ func (c *oneTimeAccessCodes) Watch(ctx context.Context, opts metav1.ListOptions)
 		Watch(ctx)
 }
 
-// Create takes the representation of a oneTimeAccessCodes and creates it.  Returns the server's representation of the accessCode, and an error, if there is any.
+// Create takes the representation of a oneTimeAccessCodes and creates it.  Returns the server's representation of the OneTimeAccessCode, and an error, if there is any.
 func (c *oneTimeAccessCodes) Create(ctx context.Context, accessCode *v1.OneTimeAccessCode, opts metav1.CreateOptions) (result *v1.OneTimeAccessCode, err error) {
 	result = &v1.OneTimeAccessCode{}
 	err = c.client.Post().
@@ -115,12 +115,12 @@ func (c *oneTimeAccessCodes) Create(ctx context.Context, accessCode *v1.OneTimeA
 	return
 }
 
-// Update takes the representation of a accessCode and updates it. Returns the server's representation of the accessCode, and an error, if there is any.
-func (c *oneTimeAccessCodes) Update(ctx context.Context, accessCode *v1.OneTimeAccessCodeSpec, opts metav1.UpdateOptions) (result *v1.OneTimeAccessCode, err error) {
+// Update takes the representation of a OneTimeAccessCode and updates it. Returns the server's representation of the accessCode, and an error, if there is any.
+func (c *oneTimeAccessCodes) Update(ctx context.Context, accessCode *v1.OneTimeAccessCode, opts metav1.UpdateOptions) (result *v1.OneTimeAccessCode, err error) {
 	result = &v1.OneTimeAccessCode{}
 	err = c.client.Put().
 		Resource("onetimeaccesscodes").
-		Name(accessCode.Code).
+		Name(accessCode.Spec.AccessCodeIdentifier).
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(accessCode).
 		Do(ctx).
@@ -128,7 +128,7 @@ func (c *oneTimeAccessCodes) Update(ctx context.Context, accessCode *v1.OneTimeA
 	return
 }
 
-// Delete takes name of the accessCode and deletes it. Returns an error if one occurs.
+// Delete takes name of the OneTimeAccessCode and deletes it. Returns an error if one occurs.
 func (c *oneTimeAccessCodes) Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("onetimeaccesscodes").
@@ -153,7 +153,7 @@ func (c *oneTimeAccessCodes) DeleteCollection(ctx context.Context, opts metav1.D
 		Error()
 }
 
-// Patch applies the patch and returns the patched accessCode.
+// Patch applies the patch and returns the patched oneTimeAccessCode.
 func (c *oneTimeAccessCodes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts metav1.PatchOptions, subresources ...string) (result *v1.OneTimeAccessCode, err error) {
 	result = &v1.OneTimeAccessCode{}
 	err = c.client.Patch(pt).

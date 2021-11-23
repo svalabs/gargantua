@@ -31,6 +31,7 @@ type HobbyfarmV1Interface interface {
 	DynamicBindConfigurationsGetter
 	DynamicBindRequestsGetter
 	EnvironmentsGetter
+	OneTimeAccessCodesGetter
 	ScenariosGetter
 	ScheduledEventsGetter
 	SessionsGetter
@@ -64,6 +65,10 @@ func (c *HobbyfarmV1Client) DynamicBindRequests() DynamicBindRequestInterface {
 
 func (c *HobbyfarmV1Client) Environments() EnvironmentInterface {
 	return newEnvironments(c)
+}
+
+func (c *HobbyfarmV1Client) OneTimeAccessCodes() OneTimeAccessCodeInterface {
+	return newOneTimeAccessCodes(c)
 }
 
 func (c *HobbyfarmV1Client) Scenarios() ScenarioInterface {
