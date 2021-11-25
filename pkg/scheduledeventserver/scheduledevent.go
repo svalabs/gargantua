@@ -59,7 +59,9 @@ func (s ScheduledEventServer) getScheduledEvent(id string) (hfv1.ScheduledEvent,
 
 func (s ScheduledEventServer) SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/a/scheduledevent/list", s.ListFunc).Methods("GET")
+	r.HandleFunc("/a/scheduledevent/list/{accessCode}/otac", s.ListOTAC).Methods("GET")
 	r.HandleFunc("/a/scheduledevent/new", s.CreateFunc).Methods("POST")
+	r.HandleFunc("/a/scheduledevent/{accessCode}/otac", s.CreateOTACFunc).Methods("POST")
 	r.HandleFunc("/a/scheduledevent/{id}", s.GetFunc).Methods("GET")
 	r.HandleFunc("/a/scheduledevent/{id}", s.UpdateFunc).Methods("PUT")
 	r.HandleFunc("/a/scheduledevent/delete/{id}", s.DeleteFunc).Methods("DELETE")
@@ -173,7 +175,7 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no access code passed in")
 		return
 	}
-	/* 
+	/*
 		Load 'One Time Access Code', check and generate OTAC
 	*/
 	oneTimeAccessCode := r.PostFormValue("one_time_access_code")
@@ -185,8 +187,8 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 			return
 		}
 		var list hfv1.OneTimeAccessCodeList
-		for i := 0; i < quantity; i ++ {
-			otac := acc.GenerateRandomOneTimeAccessCode(quantity, accessCode)
+		for i := 0; i < quantity; i++ {
+			otac := acc.GenerateRandomOneTimeAccessCode(accessCode)
 			list.Items = append(list.Items, otac)
 		}
 		otac := hfv1.OneTimeAccessCode{
@@ -553,4 +555,80 @@ func (s ScheduledEventServer) finishSessions(se *hfv1.ScheduledEvent) error {
 		}
 	}
 	return nil
+}
+
+func (s ScheduledEventServer) CreateOTACFunc(w http.ResponseWriter, r *http.Request) {
+	_, err := s.auth.AuthNAdmin(w, r)
+	if err != nil {
+		util.ReturnHTTPMessage(w, r, 403, "forbidden", "no access to get scheduledevents")
+		return
+	}
+
+	quantity := r.PostFormValue("quantity")
+	if quantity == "" {
+		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no quantity passed in")
+		return
+	}
+	accessCode := r.PostFormValue("accessCode")
+	if accessCode == "" {
+		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no accessCode passed in")
+		return
+	}
+
+	numQuantity, err := strconv.Atoi(quantity)
+	if err != nil {
+		util.ReturnHTTPMessage(w, r, 400, "badrequest", "corrupted quantity passed in")
+	}
+
+	acc, err := accesscode.NewAccessCodeClient(s.hfClientSet, context.TODO())
+	if err != nil {
+		util.ReturnHTTPMessage(w, r, 400, "badrequest", "corrupted one time access code")
+		return
+	}
+
+	for i := 0; i < numQuantity; i++ {
+		otac := acc.GenerateRandomOneTimeAccessCode(accessCode)
+		s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, &otac, metav1.CreateOptions{})
+	}
+
+	if err != nil {
+		glog.Errorf("error creating scheduled event %v", err)
+		util.ReturnHTTPMessage(w, r, 500, "internalerror", "error creating scheduled event")
+		return
+	}
+
+	util.ReturnHTTPMessage(w, r, 201, "created", "one time access code list")
+}
+
+type PreparedOTACList struct {
+	ID string `json:"id"`
+	hfv1.OneTimeAccessCodeSpec
+}
+
+func (s ScheduledEventServer) ListOTAC(w http.ResponseWriter, r *http.Request) {
+	_, err := s.auth.AuthNAdmin(w, r)
+	if err != nil {
+		util.ReturnHTTPMessage(w, r, 403, "forbidden", "no access to get scheduledevents")
+		return
+	}
+
+	oneTimeAccessCodeList, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().List(s.ctx, metav1.ListOptions{})
+	if err != nil {
+		glog.Errorf("error while retrieving onetimeaccesscodes %v", err)
+		util.ReturnHTTPMessage(w, r, 500, "error", "no onetimeaccesscodes found")
+		return
+	}
+
+	otacList := []PreparedOTACList{}
+	for i, s := range oneTimeAccessCodeList.Items {
+		otacList = append(otacList, PreparedOTACList{strconv.Itoa(i), s.Spec})
+	}
+
+	encodedOtacList, err := json.Marshal(otacList)
+	if err != nil {
+		glog.Error(err)
+	}
+	util.ReturnHTTPContent(w, r, 200, "success", encodedOtacList)
+
+	glog.V(2).Infof("listed one time access codes")
 }

@@ -200,7 +200,7 @@ func (acc AccessCodeClient) GetClosestAccessCode(userID string, scenarioOrCourse
 /* A map to save the access codes, how often a access code was used and when */
 /* var OTAClist map[string]hfv1.OneTimeAccessCode */
 
-func (acc AccessCodeClient) GenerateRandomOneTimeAccessCode(quantity int, code string) hfv1.OneTimeAccessCode {
+func (acc AccessCodeClient) GenerateRandomOneTimeAccessCode(code string) hfv1.OneTimeAccessCode {
 	return hfv1.OneTimeAccessCode{
 		Spec: hfv1.OneTimeAccessCodeSpec{
 			UserIdentifier:       "",
