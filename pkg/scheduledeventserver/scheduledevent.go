@@ -178,7 +178,7 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 	/*
 		Load 'One Time Access Code', check and generate OTAC
 	*/
-	oneTimeAccessCode := r.PostFormValue("one_time_access_code")
+	/* oneTimeAccessCode := r.PostFormValue("one_time_access_code")
 	if len(oneTimeAccessCode) > 0 {
 		quantity, _ := strconv.Atoi(oneTimeAccessCode)
 		acc, err := accesscode.NewAccessCodeClient(s.hfClientSet, context.TODO())
@@ -197,7 +197,7 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 			},
 		}
 		s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, &otac, metav1.CreateOptions{})
-	}
+	} */
 	var onDemand bool
 	onDemandRaw := r.PostFormValue("on_demand")
 	if onDemandRaw == "" {
@@ -585,10 +585,15 @@ func (s ScheduledEventServer) CreateOTACFunc(w http.ResponseWriter, r *http.Requ
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "corrupted one time access code")
 		return
 	}
-
+	glog.Infoln("creating otacs")
 	for i := 0; i < numQuantity; i++ {
+		glog.V(2).Infof("creating otac:  %v", i)
+
 		otac := acc.GenerateRandomOneTimeAccessCode(accessCode)
-		s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, &otac, metav1.CreateOptions{})
+		otac.Labels[accessCode] = "otac-"+otac.Spec.AccessCodeIdentifier
+		_, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, otac, metav1.CreateOptions{})
+
+		glog.Errorf("error creating otac %v", err)
 	}
 
 	if err != nil {
@@ -605,6 +610,8 @@ type PreparedOTACList struct {
 	hfv1.OneTimeAccessCodeSpec
 }
 
+const OneTimeAccessCodeLabel = "onetimeaccesscode.hobbyfarm.io"
+
 func (s ScheduledEventServer) ListOTAC(w http.ResponseWriter, r *http.Request) {
 	_, err := s.auth.AuthNAdmin(w, r)
 	if err != nil {
@@ -612,7 +619,11 @@ func (s ScheduledEventServer) ListOTAC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	oneTimeAccessCodeList, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().List(s.ctx, metav1.ListOptions{})
+	acc := mux.Vars(r)["accessCode"]
+
+	oneTimeAccessCodeList, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().List(s.ctx, metav1.ListOptions{
+		LabelSelector: fmt.Sprintf("%s=%s", OneTimeAccessCodeLabel, acc),
+	})
 	if err != nil {
 		glog.Errorf("error while retrieving onetimeaccesscodes %v", err)
 		util.ReturnHTTPMessage(w, r, 500, "error", "no onetimeaccesscodes found")
