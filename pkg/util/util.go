@@ -124,11 +124,20 @@ func init() {
 }
 
 var letterRunes = []rune("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ")
+var lowercaseletterRunes = []rune("abcdefghijklmnopqrstuvwxyz")
 
 func RandStringRunes(n int) string {
 	b := make([]rune, n)
 	for i := range b {
 		b[i] = letterRunes[mrand.Intn(len(letterRunes))]
+	}
+	return string(b)
+}
+
+func LowerRandStringRunes(n int) string {
+	b := make([]rune, n)
+	for i := range b {
+		b[i] = lowercaseletterRunes[mrand.Intn(len(lowercaseletterRunes))]
 	}
 	return string(b)
 }

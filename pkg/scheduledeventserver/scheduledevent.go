@@ -590,10 +590,13 @@ func (s ScheduledEventServer) CreateOTACFunc(w http.ResponseWriter, r *http.Requ
 		glog.V(2).Infof("creating otac:  %v", i)
 
 		otac := acc.GenerateRandomOneTimeAccessCode(accessCode)
-		otac.Labels[accessCode] = "otac-"+otac.Spec.AccessCodeIdentifier
+		otac.Labels[accessCode] = "otac-" + otac.Spec.AccessCodeIdentifier
+		//otac.Kind = "otac"
 		_, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, otac, metav1.CreateOptions{})
-
-		glog.Errorf("error creating otac %v", err)
+		if err != nil {
+			glog.Errorf("error creating otac scheduledevent.go \n%v", err)
+		}
+		
 	}
 
 	if err != nil {

@@ -201,14 +201,17 @@ func (acc AccessCodeClient) GetClosestAccessCode(userID string, scenarioOrCourse
 /* var OTAClist map[string]hfv1.OneTimeAccessCode */
 
 func (acc AccessCodeClient) GenerateRandomOneTimeAccessCode(code string) *hfv1.OneTimeAccessCode {
-	randomStringRunes := util.RandStringRunes(32)
+	randomStringRunes := util.LowerRandStringRunes(6)
 	x := &hfv1.OneTimeAccessCode{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "OneTimeAccessCode",
+			APIVersion: "hobbyfarm.io/v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "otac-" + randomStringRunes,
 			Labels: map[string]string{
 				"OTAC_Label": "otac-test",
 			},
-			OwnerReferences: []metav1.OwnerReference{},
 		},
 		Spec: hfv1.OneTimeAccessCodeSpec{
 			UserIdentifier:       "",
