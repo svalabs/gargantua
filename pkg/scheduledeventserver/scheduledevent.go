@@ -590,22 +590,15 @@ func (s ScheduledEventServer) CreateOTACFunc(w http.ResponseWriter, r *http.Requ
 		glog.V(2).Infof("creating otac:  %v", i)
 
 		otac := acc.GenerateRandomOneTimeAccessCode(accessCode)
-		otac.Labels[accessCode] = "otac-" + otac.Spec.AccessCodeIdentifier
-		//otac.Kind = "otac"
+		otac.Labels[accessCode] = accessCode + otac.Spec.AccessCodeIdentifier
+
 		_, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().Create(s.ctx, otac, metav1.CreateOptions{})
 		if err != nil {
 			glog.Errorf("error creating otac scheduledevent.go \n%v", err)
 		}
-		
 	}
 
-	if err != nil {
-		glog.Errorf("error creating scheduled event %v", err)
-		util.ReturnHTTPMessage(w, r, 500, "internalerror", "error creating scheduled event")
-		return
-	}
-
-	util.ReturnHTTPMessage(w, r, 201, "created", "one time access code list")
+	util.ReturnHTTPMessage(w, r, 201, "created", "one time access codes")
 }
 
 type PreparedOTACList struct {
@@ -622,26 +615,38 @@ func (s ScheduledEventServer) ListOTAC(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	glog.Info("called ListOTAC function!!!!")
+
 	acc := mux.Vars(r)["accessCode"]
 
 	oneTimeAccessCodeList, err := s.hfClientSet.HobbyfarmV1().OneTimeAccessCodes().List(s.ctx, metav1.ListOptions{
 		LabelSelector: fmt.Sprintf("%s=%s", OneTimeAccessCodeLabel, acc),
 	})
+	glog.Info("For Loop over onetimeaccesscode List")
+	for _, v := range oneTimeAccessCodeList.Items {
+		glog.Infof("Spec Code : %v", v.Spec.Code)
+		glog.Infof("Spec Timestamp : %v",v.Spec.Timestamp)
+		glog.Infof("Spec Identifier : %v",v.Spec.AccessCodeIdentifier)
+	}
+
+	//glog.Info(oneTimeAccessCodeList.Items)
 	if err != nil {
 		glog.Errorf("error while retrieving onetimeaccesscodes %v", err)
 		util.ReturnHTTPMessage(w, r, 500, "error", "no onetimeaccesscodes found")
 		return
 	}
 
-	otacList := []PreparedOTACList{}
+	/* otacList := []PreparedOTACList{}
 	for i, s := range oneTimeAccessCodeList.Items {
 		otacList = append(otacList, PreparedOTACList{strconv.Itoa(i), s.Spec})
-	}
+	} */
 
-	encodedOtacList, err := json.Marshal(otacList)
+	encodedOtacList, err := json.Marshal(&oneTimeAccessCodeList.Items)
 	if err != nil {
 		glog.Error(err)
 	}
+
+	glog.Info(encodedOtacList)
 	util.ReturnHTTPContent(w, r, 200, "success", encodedOtacList)
 
 	glog.V(2).Infof("listed one time access codes")
