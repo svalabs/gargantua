@@ -1,12 +1,11 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-    name: pvc
+    name: mongo-data
+    namespace: hobbyfarm
 spec:
-    storageClassName: ""
     accessModes:
-        - ReadWriteOnce 
-    volumeName: pv
+        - ReadWriteOnce
     resources:
         requests:
             storage: 1Gi
