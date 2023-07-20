@@ -144,5 +144,21 @@ func settings() []*v1.Setting {
 				DisplayName: "ScheduledEvent retention time (h)",
 			},
 		},
+		{
+			ObjectMeta: v12.ObjectMeta{
+				Name:      string(settingclient.ScheduledEventMaxDuration),
+				Namespace: util.GetReleaseNamespace(),
+				Labels: map[string]string{
+					labels.SettingScope: "admin-ui",
+				},
+			},
+			Value: "0",
+			Property: property.Property{
+				DataType:    property.DataTypeInteger,
+				ValueType:   property.ValueTypeScalar,
+				DisplayName: "ScheduledEvent max duration time (h)",
+			},
+		},
+		
 	}
 }

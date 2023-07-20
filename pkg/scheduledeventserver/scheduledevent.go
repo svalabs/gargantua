@@ -4,11 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/hobbyfarm/gargantua/pkg/rbacclient"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/hobbyfarm/gargantua/pkg/rbacclient"
+	"github.com/hobbyfarm/gargantua/pkg/settingclient"
 
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
@@ -173,6 +175,28 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no end time passed in")
 		return
 	}
+	//*****************Duration	
+	startTime_Date, err := time.Parse(time.UnixDate, startTime)
+	if err != nil {
+		return 
+	}
+	endTime_Date, err := time.Parse(time.UnixDate, endTime)
+	if err != nil {
+		return 
+	}
+	if  maxDuration := settingclient.GetSetting(settingclient.ScheduledEventMaxDuration); maxDuration == nil {
+		// Could not get max duration setting. Just keep the SE
+		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no max duration time in setting")
+			return 
+	} else {
+		current_Duration:=startTime_Date.Add(time.Hour * time.Duration(maxDuration.(int)))
+		if endTime_Date.Before(current_Duration) {
+			// Really finish the ScheduledEvent
+			util.ReturnHTTPMessage(w, r, 400, "badrequest", "end_time bigger then max duration time")
+			return 
+		}
+	}		
+	//*************************
 	requiredVM := r.PostFormValue("required_vms")
 	if requiredVM == "" {
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no required vm map passed in")

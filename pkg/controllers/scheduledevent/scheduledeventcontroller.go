@@ -12,8 +12,8 @@ import (
 	hfv1 "github.com/hobbyfarm/gargantua/pkg/apis/hobbyfarm.io/v1"
 	hfClientset "github.com/hobbyfarm/gargantua/pkg/client/clientset/versioned"
 	hfInformers "github.com/hobbyfarm/gargantua/pkg/client/informers/externalversions"
-	"github.com/hobbyfarm/gargantua/pkg/util"
 	"github.com/hobbyfarm/gargantua/pkg/settingclient"
+	"github.com/hobbyfarm/gargantua/pkg/util"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -631,7 +631,21 @@ func (s *ScheduledEventController) reconcileScheduledEvent(seName string) error 
 				return s.deleteScheduledEvent(se)
 			}
 		}
+
 	}
+//-------------------------check Duration
+	if  maxDuration := settingclient.GetSetting(settingclient.ScheduledEventMaxDuration); maxDuration == nil {
+			// Could not get max duration setting. Just keep the SE
+			return fmt.Errorf("Error retreiving max duration setting")
+	} else {
+		current_Duration:=beginTime.Add(time.Hour * time.Duration(maxDuration.(int)))
+		if endTime.Before(current_Duration) {
+			// Really finish the ScheduledEvent
+			return s.deleteScheduledEvent(se)
+		}
+	}
+//----------------------------------------
+
 
 	// The ScheduledEvent is set to OnDemand but still has VMSets
 	if (se.Spec.OnDemand && len(se.Status.VirtualMachineSets) > 0){
