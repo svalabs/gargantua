@@ -175,7 +175,7 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no end time passed in")
 		return
 	}
-	//*****************Duration	
+//---------------------Duration	
 	startTime_Date, err := time.Parse(time.UnixDate, startTime)
 	if err != nil {
 		return 
@@ -189,14 +189,13 @@ func (s ScheduledEventServer) CreateFunc(w http.ResponseWriter, r *http.Request)
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no max duration time in setting")
 			return 
 	} else {
-		current_Duration:=startTime_Date.Add(time.Hour * time.Duration(maxDuration.(int)))
-		if endTime_Date.Before(current_Duration) {
-			// Really finish the ScheduledEvent
-			util.ReturnHTTPMessage(w, r, 400, "badrequest", "end_time bigger then max duration time")
+		difference := endTime_Date.Sub(startTime_Date)
+		if (time.Hour * time.Duration(maxDuration.(int))> difference){
+			util.ReturnHTTPMessage(w, r, 400, "badrequest", "time bigger then max duration time")
 			return 
 		}
 	}		
-	//*************************
+//------------------------
 	requiredVM := r.PostFormValue("required_vms")
 	if requiredVM == "" {
 		util.ReturnHTTPMessage(w, r, 400, "badrequest", "no required vm map passed in")
@@ -490,7 +489,25 @@ func (s ScheduledEventServer) UpdateFunc(w http.ResponseWriter, r *http.Request)
 				return err
 			}
 		}
-
+//---------------------Duration	
+		startTime_Date, err := time.Parse(time.UnixDate, scheduledEvent.Spec.StartTime)
+		if err != nil {
+			return err
+		}
+		endTime_Date, err := time.Parse(time.UnixDate, scheduledEvent.Spec.EndTime)
+		if err != nil {
+			return err
+		}
+		if  maxDuration := settingclient.GetSetting(settingclient.ScheduledEventMaxDuration); maxDuration == nil {
+			// Could not get max duration setting. Just keep the SE	
+				return fmt.Errorf("bad")
+		} else {
+			difference := endTime_Date.Sub(startTime_Date)
+			if (time.Hour * time.Duration(maxDuration.(int))> difference){		
+				return fmt.Errorf("bad")
+			}
+		}		
+//------------------------
 		updateSE, updateErr := s.hfClientSet.HobbyfarmV1().ScheduledEvents(util.GetReleaseNamespace()).Update(s.ctx, scheduledEvent, metav1.UpdateOptions{})
 		if(updateErr != nil){
 			return updateErr

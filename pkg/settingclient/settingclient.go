@@ -2,13 +2,14 @@ package settingclient
 
 import (
 	"context"
+	"time"
+
 	"github.com/golang/glog"
 	v1 "github.com/hobbyfarm/gargantua/pkg/apis/hobbyfarm.io/v1"
 	hfClientset "github.com/hobbyfarm/gargantua/pkg/client/clientset/versioned"
 	"github.com/hobbyfarm/gargantua/pkg/client/informers/externalversions"
 	"github.com/hobbyfarm/gargantua/pkg/util"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"time"
 )
 
 var (
@@ -16,11 +17,13 @@ var (
 )
 
 const (
-	SettingRegistrationDisabled SettingName = "registration-disabled"
-	SettingAdminUIMOTD          SettingName = "motd-admin-ui"
-	SettingUIMOTD               SettingName = "motd-ui"
-	ScheduledEventRetentionTime SettingName = "scheduledevent-retention-time"
-	ScheduledEventMaxDuration   SettingName = "scheduledevent-max-duration"
+	SettingRegistrationDisabled  SettingName = "registration-disabled"
+	SettingAdminUIMOTD           SettingName = "motd-admin-ui"
+	SettingUIMOTD                SettingName = "motd-ui"
+	ScheduledEventRetentionTime  SettingName = "scheduledevent-retention-time"
+	ScheduledEventMaxDuration    SettingName = "scheduledevent-max-duration"
+	VirtualMachinePrefixScheduled SettingName = "vm-prefix-sheduled"
+	VirtualMachinePrefixDynamic   SettingName = "vm-prefix-dynamic"
 )
 
 type SettingName string

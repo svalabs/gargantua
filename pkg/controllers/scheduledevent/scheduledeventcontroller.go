@@ -631,21 +631,7 @@ func (s *ScheduledEventController) reconcileScheduledEvent(seName string) error 
 				return s.deleteScheduledEvent(se)
 			}
 		}
-
 	}
-//-------------------------check Duration
-	if  maxDuration := settingclient.GetSetting(settingclient.ScheduledEventMaxDuration); maxDuration == nil {
-			// Could not get max duration setting. Just keep the SE
-			return fmt.Errorf("Error retreiving max duration setting")
-	} else {
-		current_Duration:=beginTime.Add(time.Hour * time.Duration(maxDuration.(int)))
-		if endTime.Before(current_Duration) {
-			// Really finish the ScheduledEvent
-			return s.deleteScheduledEvent(se)
-		}
-	}
-//----------------------------------------
-
 
 	// The ScheduledEvent is set to OnDemand but still has VMSets
 	if (se.Spec.OnDemand && len(se.Status.VirtualMachineSets) > 0){

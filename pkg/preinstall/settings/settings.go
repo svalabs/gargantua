@@ -2,15 +2,16 @@ package settings
 
 import (
 	"context"
+	"sync"
+
 	v1 "github.com/hobbyfarm/gargantua/pkg/apis/hobbyfarm.io/v1"
 	hfClientset "github.com/hobbyfarm/gargantua/pkg/client/clientset/versioned"
-	"github.com/hobbyfarm/gargantua/pkg/settingclient"
 	"github.com/hobbyfarm/gargantua/pkg/labels"
 	"github.com/hobbyfarm/gargantua/pkg/property"
+	"github.com/hobbyfarm/gargantua/pkg/settingclient"
 	"github.com/hobbyfarm/gargantua/pkg/util"
 	"k8s.io/apimachinery/pkg/api/errors"
 	v12 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"sync"
 )
 
 func InstallResources(ctx context.Context, client *hfClientset.Clientset, wg *sync.WaitGroup) error {
@@ -159,6 +160,35 @@ func settings() []*v1.Setting {
 				DisplayName: "ScheduledEvent max duration time (h)",
 			},
 		},
-		
+		{
+			ObjectMeta: v12.ObjectMeta{
+				Name:      string(settingclient.VirtualMachinePrefixScheduled),
+				Namespace: util.GetReleaseNamespace(),
+				Labels: map[string]string{
+					labels.SettingScope: "admin-ui",
+				},
+			},
+			Value: "scheduled",
+			Property: property.Property{
+				DataType:    property.DataTypeString,
+				ValueType:   property.ValueTypeScalar,
+				DisplayName: "ScheduledEvent HF_BASENAME_SCHEDULED_PREFIX",
+			},
+		},
+		{
+			ObjectMeta: v12.ObjectMeta{
+				Name:      string(settingclient.VirtualMachinePrefixDynamic),
+				Namespace: util.GetReleaseNamespace(),
+				Labels: map[string]string{
+					labels.SettingScope: "gargantua",
+				},
+			},
+			Value: "dynamic",
+			Property: property.Property{
+				DataType:    property.DataTypeString,
+				ValueType:   property.ValueTypeScalar,
+				DisplayName: "ScheduledEvent HF_BASENAME_DYNAMIC_PREFIX",
+			},
+		},
 	}
 }
