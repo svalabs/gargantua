@@ -44,6 +44,7 @@ func start() {
 
 	// Create router and routes
 	router := mux.NewRouter()
+	SetupRoutes(router)
 
 	// Start the server
 	srv := &http.Server{
