@@ -1,4 +1,4 @@
-package db
+package mongodb
 
 import (
 	"context"
@@ -25,7 +25,7 @@ var (
 	collection *mongo.Collection
 )
 
-func start() {
+func main() {
 	// MongoDB connection settings
 	mongoURI := "mongodb://localhost:27017"
 	dbName := "mydatabase"
