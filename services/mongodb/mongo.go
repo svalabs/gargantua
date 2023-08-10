@@ -7,6 +7,7 @@ import (
 	"github.com/hobbyfarm/gargantua/pkg/util"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -26,14 +27,15 @@ var (
 )
 
 func init() {
-
+	SetupRoutes(mux.NewRouter())
 }
 
-func main() {
+func main(r *mux.Router) {
 	// MongoDB connection settings
 	mongoURI := "mongodb://localhost:27017"
 	dbName := "mydatabase"
 	collectionName := "mycollection"
+	serverPort := 8080
 
 	// Create MongoDB client
 	clientOptions := options.Client().ApplyURI(mongoURI)
@@ -46,19 +48,16 @@ func main() {
 	// Select MongoDB collection
 	collection = client.Database(dbName).Collection(collectionName)
 
-	// Create router and routes
-	router := mux.NewRouter()
-	SetupRoutes(router)
-
 	// Start the server
 	srv := &http.Server{
-		Addr:         ":8080",
-		Handler:      router,
+		Addr:         ":" + strconv.Itoa(serverPort),
+		Handler:      r,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
+	glog.Info("Starting server on port ", serverPort)
 
-	log.Println("Starting server on port 8080")
+	log.Println()
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
