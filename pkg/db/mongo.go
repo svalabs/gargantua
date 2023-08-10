@@ -1,8 +1,10 @@
-package main
+package db
 
 import (
 	"context"
 	"encoding/json"
+	"github.com/golang/glog"
+	"github.com/hobbyfarm/gargantua/pkg/util"
 	"log"
 	"net/http"
 	"time"
@@ -23,7 +25,7 @@ var (
 	collection *mongo.Collection
 )
 
-func main() {
+func start() {
 	// MongoDB connection settings
 	mongoURI := "mongodb://localhost:27017"
 	dbName := "mydatabase"
@@ -42,11 +44,6 @@ func main() {
 
 	// Create router and routes
 	router := mux.NewRouter()
-	router.HandleFunc("/api/items", getItems).Methods("GET")
-	router.HandleFunc("/api/items/{id}", getItem).Methods("GET")
-	router.HandleFunc("/api/items", createItem).Methods("POST")
-	router.HandleFunc("/api/items/{id}", updateItem).Methods("PUT")
-	router.HandleFunc("/api/items/{id}", deleteItem).Methods("DELETE")
 
 	// Start the server
 	srv := &http.Server{
@@ -60,6 +57,15 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		log.Fatal(err)
 	}
+}
+
+func SetupRoutes(r *mux.Router) {
+	r.HandleFunc("/api/items", getItems).Methods("GET")
+	r.HandleFunc("/api/items/{id}", getItem).Methods("GET")
+	r.HandleFunc("/api/items", createItem).Methods("POST")
+	r.HandleFunc("/api/items/{id}", updateItem).Methods("PUT")
+	r.HandleFunc("/api/items/{id}", deleteItem).Methods("DELETE")
+	glog.V(2).Infof("set up route")
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
@@ -172,5 +178,6 @@ func sendJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
 }
 
 func sendErrorResponse(w http.ResponseWriter, statusCode int, message string) {
+	util.ReturnHTTPMessage(w, r, statusCode, "error", message)
 	sendJSONResponse(w, statusCode, map[string]string{"error": message})
 }
