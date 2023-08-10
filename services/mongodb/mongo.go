@@ -25,6 +25,10 @@ var (
 	collection *mongo.Collection
 )
 
+func init() {
+
+}
+
 func main() {
 	// MongoDB connection settings
 	mongoURI := "mongodb://localhost:27017"
@@ -73,7 +77,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	// Fetch all items from the MongoDB collection
 	cur, err := collection.Find(context.Background(), bson.D{})
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, err.Error())
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 	defer cur.Close(context.Background())
@@ -82,13 +86,16 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	for cur.Next(context.Background()) {
 		var item Item
 		if err := cur.Decode(&item); err != nil {
-			sendErrorResponse(w, http.StatusInternalServerError, err.Error())
+			util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 			return
 		}
 		items = append(items, item)
 	}
-
-	sendJSONResponse(w, http.StatusOK, items)
+	content, err := json.Marshal(items)
+	if err != nil {
+		glog.Error(err)
+	}
+	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
@@ -102,35 +109,43 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 	var item Item
 	if err := result.Decode(&item); err != nil {
-		sendErrorResponse(w, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
 
-	sendJSONResponse(w, http.StatusOK, item)
+	content, err := json.Marshal(item)
+	if err != nil {
+		glog.Error(err)
+	}
+	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body into an Item struct
 	var item Item
 	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid request payload")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
 	// Insert the item into the MongoDB collection
 	if _, err := collection.InsertOne(context.Background(), item); err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, err.Error())
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	sendJSONResponse(w, http.StatusCreated, item)
+	content, err := json.Marshal(item)
+	if err != nil {
+		glog.Error(err)
+	}
+	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body into an Item struct
 	var item Item
 	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		sendErrorResponse(w, http.StatusBadRequest, "Invalid request payload")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
@@ -139,16 +154,20 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 	update := bson.M{"history": item.History}
 	result, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, err.Error())
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if result.MatchedCount == 0 {
-		sendErrorResponse(w, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
 
-	sendJSONResponse(w, http.StatusOK, item)
+	content, err := json.Marshal(item)
+	if err != nil {
+		glog.Error(err)
+	}
+	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
@@ -160,25 +179,15 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 	filter := bson.M{"sessionID": sessionID}
 	result, err := collection.DeleteOne(context.Background(), filter)
 	if err != nil {
-		sendErrorResponse(w, http.StatusInternalServerError, err.Error())
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
 	if result.DeletedCount == 0 {
-		sendErrorResponse(w, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
 
-	sendJSONResponse(w, http.StatusOK, map[string]string{"message": "Item deleted successfully"})
-}
-
-func sendJSONResponse(w http.ResponseWriter, statusCode int, data interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(data)
-}
-
-func sendErrorResponse(w http.ResponseWriter, statusCode int, message string) {
-	util.ReturnHTTPMessage(w, r, statusCode, "error", message)
-	sendJSONResponse(w, statusCode, map[string]string{"error": message})
+	//todo check messageType
+	util.ReturnHTTPMessage(w, r, http.StatusOK, "success", "Item deleted successfully")
 }
