@@ -3,6 +3,7 @@ package mongodb
 import (
 	"context"
 	"encoding/json"
+	"flag"
 	"github.com/golang/glog"
 	"github.com/hobbyfarm/gargantua/pkg/util"
 	"log"
@@ -24,21 +25,27 @@ type Item struct {
 var (
 	client     *mongo.Client
 	collection *mongo.Collection
+
+	URI            string
+	dbName         string
+	collectionName string
+	servicePort    int
 )
 
 func init() {
-	SetupRoutes(mux.NewRouter())
+	flag.StringVar(&URI, "mongoURI", "mongodb://localhost:27017", "URI of the mongodb")
+	flag.StringVar(&dbName, "dbName", "mydatabase", "Name of the mongodb")
+	flag.StringVar(&collectionName, "collectionName", "mycollection", "Name of the collection in the database")
+	flag.IntVar(&servicePort, "servicePort", 8080, "Port to run service on")
 }
 
-func main(r *mux.Router) {
-	// MongoDB connection settings
-	mongoURI := "mongodb://localhost:27017"
-	dbName := "mydatabase"
-	collectionName := "mycollection"
-	serverPort := 8080
+func main() {
+	flag.Parse()
+	r := mux.NewRouter()
+	SetupRoutes(r)
 
 	// Create MongoDB client
-	clientOptions := options.Client().ApplyURI(mongoURI)
+	clientOptions := options.Client().ApplyURI(URI)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		log.Fatal(err)
@@ -50,12 +57,12 @@ func main(r *mux.Router) {
 
 	// Start the server
 	srv := &http.Server{
-		Addr:         ":" + strconv.Itoa(serverPort),
+		Addr:         ":" + strconv.Itoa(servicePort),
 		Handler:      r,
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 10 * time.Second,
 	}
-	glog.Info("Starting server on port ", serverPort)
+	glog.Info("Starting server on port ", servicePort)
 
 	log.Println()
 	if err := srv.ListenAndServe(); err != nil {
