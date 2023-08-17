@@ -10,7 +10,7 @@ ENV CGO_ENABLED=0
 RUN go get -d -v ./...
 RUN go install -v ./...
 
-#RUN ls -lart && go build -o /go/bin/gargantua main.go
+#RUN ls -lart && go build -o /go/bin/mongodb main.go
 ###### release image #####
 FROM alpine:latest
 
