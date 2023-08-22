@@ -65,6 +65,7 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		glog.Fatal(err)
 	}
+	glog.Info("test")
 }
 
 func SetupRoutes(r *mux.Router) {
