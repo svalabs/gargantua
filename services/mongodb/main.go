@@ -1,4 +1,4 @@
-package mongodb
+package main
 
 import (
 	"context"
@@ -6,7 +6,6 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/hobbyfarm/gargantua/pkg/util"
-	"log"
 	"net/http"
 	"strconv"
 	"time"
@@ -23,7 +22,6 @@ type Item struct {
 }
 
 var (
-	client     *mongo.Client
 	collection *mongo.Collection
 
 	URI            string
@@ -48,7 +46,7 @@ func main() {
 	clientOptions := options.Client().ApplyURI(URI)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 	defer client.Disconnect(context.Background())
 
@@ -64,9 +62,8 @@ func main() {
 	}
 	glog.Info("Starting server on port ", servicePort)
 
-	log.Println()
 	if err := srv.ListenAndServe(); err != nil {
-		log.Fatal(err)
+		glog.Fatal(err)
 	}
 }
 
@@ -80,6 +77,7 @@ func SetupRoutes(r *mux.Router) {
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Received getTtems")
 	// Fetch all items from the MongoDB collection
 	cur, err := collection.Find(context.Background(), bson.D{})
 	if err != nil {
