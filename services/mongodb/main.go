@@ -77,9 +77,10 @@ func SetupRoutes(r *mux.Router) {
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
-	glog.Info("Received getTtems")
+	glog.Info("Received getItems")
 	// Fetch all items from the MongoDB collection
 	cur, err := collection.Find(context.Background(), bson.D{})
+	glog.Info(cur, err)
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
@@ -110,20 +111,17 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	// Find the item with the given ID in the MongoDB collection
 	filter := bson.M{"sessionID": sessionID}
 	result := collection.FindOne(context.Background(), filter)
-	glog.Info(result)
 
 	var item Item
 	if err := result.Decode(&item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
-	glog.Info(item)
 
 	content, err := json.Marshal(item)
 	if err != nil {
 		glog.Error(err)
 	}
-	glog.Info(content)
 	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
