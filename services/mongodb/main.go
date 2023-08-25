@@ -65,7 +65,6 @@ func main() {
 	if err := srv.ListenAndServe(); err != nil {
 		glog.Fatal(err)
 	}
-	glog.Info("test")
 }
 
 func SetupRoutes(r *mux.Router) {
@@ -111,17 +110,20 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 	// Find the item with the given ID in the MongoDB collection
 	filter := bson.M{"sessionID": sessionID}
 	result := collection.FindOne(context.Background(), filter)
+	glog.Info(result)
 
 	var item Item
 	if err := result.Decode(&item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
+	glog.Info(item)
 
 	content, err := json.Marshal(item)
 	if err != nil {
 		glog.Error(err)
 	}
+	glog.Info(content)
 	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
