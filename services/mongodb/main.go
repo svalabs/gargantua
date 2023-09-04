@@ -7,6 +7,7 @@ import (
 	"github.com/golang/glog"
 	"github.com/hobbyfarm/gargantua/pkg/util"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -17,8 +18,8 @@ import (
 )
 
 type Item struct {
-	SessionID int64    `json:"sessionID"`
-	History   []string `json:"history"`
+	Id      int64    `json:"id"`
+	History []string `json:"history"`
 }
 
 var (
@@ -31,10 +32,21 @@ var (
 )
 
 func init() {
-	flag.StringVar(&URI, "mongoURI", "mongodb://localhost:27017", "URI of the mongodb")
-	flag.StringVar(&dbName, "dbName", "mydatabase", "Name of the mongodb")
-	flag.StringVar(&collectionName, "collectionName", "mycollection", "Name of the collection in the database")
+	flag.StringVar(&URI, "mongoURI", "mongodb://mongo-db-service.hobbyfarm.svc.cluster.local:27017", "URI of the mongodb")
+	flag.StringVar(&dbName, "dbName", "hobbyfarmDB", "Name of the mongodb")
+	flag.StringVar(&collectionName, "collection", "sessionData", "Name of the collection in the database")
 	flag.IntVar(&servicePort, "servicePort", 8080, "Port to run service on")
+
+	// Use env if available
+	if envURI := os.Getenv("DB_URI"); envURI != "" {
+		URI = envURI
+	}
+	if envName := os.Getenv("DB_NAME"); envName != "" {
+		dbName = envName
+	}
+	if envCollection := os.Getenv("DB_COLLECTION"); envCollection != "" {
+		collectionName = envCollection
+	}
 }
 
 func main() {
@@ -42,8 +54,15 @@ func main() {
 	r := mux.NewRouter()
 	SetupRoutes(r)
 
+	credentials := options.Credential{
+		AuthSource:    "admin",
+		AuthMechanism: "SCRAM-SHA-256",
+		Username:      "adminuser",
+		Password:      "password123",
+	}
+
 	// Create MongoDB client
-	clientOptions := options.Client().ApplyURI(URI)
+	clientOptions := options.Client().ApplyURI(URI).SetAuth(credentials)
 	client, err := mongo.Connect(context.Background(), clientOptions)
 	if err != nil {
 		glog.Fatal(err)
@@ -73,14 +92,13 @@ func SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/items", createItem).Methods("POST")
 	r.HandleFunc("/api/items/{id}", updateItem).Methods("PUT")
 	r.HandleFunc("/api/items/{id}", deleteItem).Methods("DELETE")
-	glog.V(2).Infof("set up route")
+	glog.V(2).Infof("API Routes are set up")
 }
 
 func getItems(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received getItems")
 	// Fetch all items from the MongoDB collection
 	cur, err := collection.Find(context.Background(), bson.D{})
-	glog.Info(cur, err)
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
@@ -96,7 +114,9 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, item)
 	}
+	glog.Info(items)
 	content, err := json.Marshal(items)
+	glog.Info(content)
 	if err != nil {
 		glog.Error(err)
 	}
@@ -104,12 +124,12 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Received getItem")
 	// Extract the item ID from the URL path parameter
-	vars := mux.Vars(r)
-	sessionID := vars["sessionID"]
+	id := mux.Vars(r)["id"]
 
 	// Find the item with the given ID in the MongoDB collection
-	filter := bson.M{"sessionID": sessionID}
+	filter := bson.M{"_id": id}
 	result := collection.FindOne(context.Background(), filter)
 
 	var item Item
@@ -126,6 +146,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func createItem(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Received createItem")
 	// Parse the request body into an Item struct
 	var item Item
 	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
@@ -133,6 +154,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	glog.Info(item)
 	// Insert the item into the MongoDB collection
 	if _, err := collection.InsertOne(context.Background(), item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
@@ -143,6 +165,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		glog.Error(err)
 	}
+	glog.Info(content)
 	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
 }
 
@@ -155,7 +178,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the item in the MongoDB collection
-	filter := bson.M{"sessionID": item.SessionID}
+	filter := bson.M{"_id": item.Id}
 	update := bson.M{"history": item.History}
 	result, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
@@ -177,11 +200,10 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
 	// Extract the item ID from the URL path parameter
-	vars := mux.Vars(r)
-	sessionID := vars["sessionID"]
+	id := mux.Vars(r)["id"]
 
 	// Delete the item from the MongoDB collection
-	filter := bson.M{"sessionID": sessionID}
+	filter := bson.M{"_id": id}
 	result, err := collection.DeleteOne(context.Background(), filter)
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
