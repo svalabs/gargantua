@@ -170,7 +170,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 
 	// Update the item in the MongoDB collection
 	filter := bson.M{"_id": item.Id}
-	update := bson.M{"history": item.History}
+	update := bson.M{"$set": bson.M{"history": item.History}}
 	result, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
