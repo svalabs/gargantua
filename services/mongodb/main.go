@@ -120,7 +120,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		glog.Error(err)
 	}
-	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
+	returnJSONResponse(w, r, http.StatusOK, items)
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
