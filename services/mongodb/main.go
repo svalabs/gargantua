@@ -6,7 +6,6 @@ import (
 	"flag"
 	"github.com/golang/glog"
 	"github.com/hobbyfarm/gargantua/pkg/util"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 	"os"
 	"strconv"
@@ -19,8 +18,8 @@ import (
 )
 
 type Item struct {
-	Id      primitive.ObjectID `bson:"_id" json:"id"`
-	History []string           `bson:"history" json:"history"`
+	Id      string   `bson:"_id" json:"id"`
+	History []string `bson:"history" json:"history"`
 }
 
 var (
