@@ -138,41 +138,32 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := json.Marshal(item)
-	if err != nil {
-		glog.Error(err)
-	}
-	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
+	returnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received createItem")
+
 	// Parse the request body into an Item struct
 	var item Item
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+	if err := decodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	glog.Info(item)
 	// Insert the item into the MongoDB collection
 	if _, err := collection.InsertOne(context.Background(), item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	content, err := json.Marshal(item)
-	if err != nil {
-		glog.Error(err)
-	}
-	glog.Info(content)
-	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
+	returnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
 	// Parse the request body into an Item struct
 	var item Item
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+	if err := decodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -191,11 +182,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	content, err := json.Marshal(item)
-	if err != nil {
-		glog.Error(err)
-	}
-	util.ReturnHTTPContent(w, r, http.StatusOK, "content", content)
+	returnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
@@ -217,4 +204,19 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 
 	//todo check messageType
 	util.ReturnHTTPMessage(w, r, http.StatusOK, "success", "Item deleted successfully")
+}
+
+// Parse the request body into an Item struct
+func decodeJSONRequest(r *http.Request, v interface{}) error {
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
+// Return a JSON response
+func returnJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
+		glog.Error(err)
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, "Failed to marshal response")
+	}
 }
