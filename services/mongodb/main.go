@@ -29,6 +29,11 @@ var (
 	dbName         string
 	collectionName string
 	servicePort    int
+
+	authSource    string
+	authMechanism string
+	username      string
+	password      string
 )
 
 func init() {
@@ -36,6 +41,11 @@ func init() {
 	flag.StringVar(&dbName, "dbName", "hobbyfarmDB", "Name of the mongodb")
 	flag.StringVar(&collectionName, "collection", "sessionData", "Name of the collection in the database")
 	flag.IntVar(&servicePort, "servicePort", 8080, "Port to run service on")
+
+	flag.StringVar(&authSource, "authSource", "", "Name of the collection in the database")
+	flag.StringVar(&authMechanism, "authMechanism", "", "Name of the collection in the database")
+	flag.StringVar(&username, "username", "", "Name of the collection in the database")
+	flag.StringVar(&password, "password", "", "Name of the collection in the database")
 
 	// Use env if available
 	if envURI := os.Getenv("DB_URI"); envURI != "" {
@@ -47,6 +57,19 @@ func init() {
 	if envCollection := os.Getenv("DB_COLLECTION"); envCollection != "" {
 		collectionName = envCollection
 	}
+
+	if envAuthSource := os.Getenv("AUTH_SOURCE"); envAuthSource != "" {
+		authSource = envAuthSource
+	}
+	if envAuthMechanism := os.Getenv("AUTH_MECHANISM"); envAuthMechanism != "" {
+		authMechanism = envAuthMechanism
+	}
+	if envUsername := os.Getenv("AUTH_USERNAME"); envUsername != "" {
+		username = envUsername
+	}
+	if envPassword := os.Getenv("AUTH_PASSWORD"); envPassword != "" {
+		password = envPassword
+	}
 }
 
 func main() {
@@ -55,10 +78,10 @@ func main() {
 	SetupRoutes(r)
 
 	credentials := options.Credential{
-		AuthSource:    "admin",
-		AuthMechanism: "SCRAM-SHA-256",
-		Username:      "adminuser",
-		Password:      "password123",
+		AuthSource:    authSource,
+		AuthMechanism: authMechanism,
+		Username:      username,
+		Password:      password,
 	}
 
 	// Create MongoDB client
