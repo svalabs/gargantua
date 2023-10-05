@@ -105,6 +105,7 @@ func SetupRoutes(r *mux.Router) {
 	r.HandleFunc("/api/items", createItem).Methods("POST")
 	r.HandleFunc("/api/items/{id}", updateItem).Methods("PUT")
 	r.HandleFunc("/api/items/{id}", deleteItem).Methods("DELETE")
+	r.HandleFunc("/api/items/{id}", appendDataToItem).Methods("PATCH")
 	glog.V(2).Infof("API Routes are set up")
 }
 
@@ -174,6 +175,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
+	id := mux.Vars(r)["id"]
 	// Parse the request body into an Item struct
 	var item Item
 	if err := decodeJSONRequest(r, &item); err != nil {
@@ -182,7 +184,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Update the item in the MongoDB collection
-	filter := bson.M{"_id": item.Id}
+	filter := bson.M{"_id": id}
 	update := bson.M{"$set": bson.M{"data": item.Data}}
 	result, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
@@ -196,6 +198,36 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	returnJSONResponse(w, r, http.StatusOK, item)
+}
+
+func appendDataToItem(w http.ResponseWriter, r *http.Request) {
+	// Extract the item ID from the URL path parameter
+	id := mux.Vars(r)["id"]
+
+	// Parse the request body into a map[string]interface{} to get the data to append
+	var requestData map[string]interface{}
+	if err := decodeJSONRequest(r, &requestData); err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+		return
+	}
+
+	// Create an update query to append data to the existing item
+	update := bson.M{"$set": bson.M{"data": requestData}}
+
+	// Find and update the item in the MongoDB collection
+	filter := bson.M{"_id": id}
+	result, err := collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
+	if result.MatchedCount == 0 {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
+		return
+	}
+
+	returnJSONResponse(w, r, http.StatusOK, requestData)
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
