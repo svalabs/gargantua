@@ -178,16 +178,15 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) appendDataToItem(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
-	var requestData map[string]interface{}
+	var item map[string]interface{}
 
-	if err := decodeJSONRequest(r, &requestData); err != nil {
+	if err := decodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
 
-	// Use $addToSet to append data to the existing "data" field
-	update := bson.M{"$addToSet": bson.M{"data": requestData}}
 	filter := bson.M{"_id": id}
+	update := bson.M{"$addToSet": bson.M{"data": item}}
 	result, err := s.collection.UpdateOne(context.Background(), filter, update)
 
 	if err != nil {
@@ -200,7 +199,7 @@ func (s *Server) appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnJSONResponse(w, r, http.StatusOK, requestData)
+	returnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request) {
