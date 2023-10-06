@@ -185,7 +185,8 @@ func (s *Server) appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	update := bson.M{"$set": bson.M{"data": requestData}}
+	// Use $addToSet to append data to the existing "data" field
+	update := bson.M{"$addToSet": bson.M{"data": requestData}}
 	filter := bson.M{"_id": id}
 	result, err := s.collection.UpdateOne(context.Background(), filter, update)
 
