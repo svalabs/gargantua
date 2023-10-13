@@ -136,8 +136,7 @@ func (s *Server) createItem(w http.ResponseWriter, r *http.Request) {
 
 	// Parse the request body into an Item struct
 	var item Item
-	if err := decodeJSONRequest(r, &item); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+	if err := decodeJSONRequestAndHandleError(w, r, &item); err != nil {
 		return
 	}
 
@@ -154,8 +153,7 @@ func (s *Server) updateItem(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var item Item
 
-	if err := decodeJSONRequest(r, &item); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+	if err := decodeJSONRequestAndHandleError(w, r, &item); err != nil {
 		return
 	}
 
@@ -180,8 +178,7 @@ func (s *Server) appendDataToItem(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	var item map[string]interface{}
 
-	if err := decodeJSONRequest(r, &item); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+	if err := decodeJSONRequestAndHandleError(w, r, &item); err != nil {
 		return
 	}
 
@@ -225,6 +222,14 @@ func (s *Server) deleteItem(w http.ResponseWriter, r *http.Request) {
 // Parse the request body into an Item struct
 func decodeJSONRequest(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
+}
+
+func decodeJSONRequestAndHandleError(w http.ResponseWriter, r *http.Request, v interface{}) error {
+	if err := decodeJSONRequest(r, v); err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+		return err
+	}
+	return nil
 }
 
 // Return a JSON response
