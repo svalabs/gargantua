@@ -211,19 +211,19 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Create an update query to append data to the existing item
-	update := bson.M{"$addToSet": bson.M{"data": requestData}}
-
-	// Find and update the item in the MongoDB collection
+	// Retrieve the current value of the 'data' field
+	var currentItem Item
 	filter := bson.M{"_id": id}
-	result, err := collection.UpdateOne(context.Background(), filter, update)
-	if err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
+	if err := collection.FindOne(context.Background(), filter).Decode(&currentItem); err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
 
-	if result.MatchedCount == 0 {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
+	currentItem.Data = mergeJSON(currentItem.Data, requestData)
+	update := bson.M{"$set": bson.M{"data": currentItem.Data}}
+	_, err := collection.UpdateOne(context.Background(), filter, update)
+	if err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -264,4 +264,18 @@ func returnJSONResponse(w http.ResponseWriter, r *http.Request, status int, payl
 		glog.Error(err)
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, "Failed to marshal response")
 	}
+}
+
+// Merge twi JSON objects
+func mergeJSON(currentData, newData map[string]interface{}) map[string]interface{} {
+	for key, value := range newData {
+		if _, exists := currentData[key]; exists {
+			// If the key exists in the current data, merge it
+			currentData[key] = mergeJSON(currentData[key].(map[string]interface{}), value.(map[string]interface{}))
+		} else {
+			// If the key doesn't exist in the current data, add it
+			currentData[key] = value
+		}
+	}
+	return currentData
 }
