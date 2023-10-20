@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"flag"
+	"fmt"
 	"github.com/golang/glog"
 	"github.com/hobbyfarm/gargantua/pkg/util"
 	"net/http"
 	"os"
+	"reflect"
 	"strconv"
 	"time"
 
@@ -219,7 +221,18 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	currentItem.Data = mergeJSON(currentItem.Data, requestData)
+	// Ensure 'Data' is a map[string]interface{}
+	if currentItem.Data == nil {
+		currentItem.Data = make(map[string]interface{})
+	}
+
+	// Merge the new data into the current data object
+	if err := mergeJSON(currentItem.Data, requestData); err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, err.Error())
+		return
+	}
+
+	// Update the 'data' field with the merged value
 	update := bson.M{"$set": bson.M{"data": currentItem.Data}}
 	_, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
@@ -266,16 +279,59 @@ func returnJSONResponse(w http.ResponseWriter, r *http.Request, status int, payl
 	}
 }
 
-// Merge twi JSON objects
-func mergeJSON(currentData, newData map[string]interface{}) map[string]interface{} {
+// Merge two JSON objects
+
+func mergeJSON(currentData map[string]interface{}, newData map[string]interface{}) error {
 	for key, value := range newData {
-		if _, exists := currentData[key]; exists {
-			// If the key exists in the current data, merge it
-			currentData[key] = mergeJSON(currentData[key].(map[string]interface{}), value.(map[string]interface{}))
+		if existingValue, exists := currentData[key]; exists {
+			// Normalize array types
+			existingValArr, existingIsArray := existingValue.([]interface{})
+			newValArr, newIsArray := value.([]interface{})
+			if !existingIsArray && reflect.TypeOf(existingValue).Kind() == reflect.Slice {
+				existingValArr = normalizeSlice(existingValue)
+				existingIsArray = true
+			}
+			if !newIsArray && reflect.TypeOf(value).Kind() == reflect.Slice {
+				newValArr = normalizeSlice(value)
+				newIsArray = true
+			}
+
+			// Check if both are maps
+			if existingMap, isMap := existingValue.(map[string]interface{}); isMap {
+				if newMap, isNewMap := value.(map[string]interface{}); isNewMap {
+					if err := mergeJSON(existingMap, newMap); err != nil {
+						return err
+					}
+				} else {
+					return fmt.Errorf("Key '%s' already exists and is an object", key)
+				}
+			} else if existingIsArray && newIsArray { // Check if both are arrays
+				existingValArr = append(existingValArr, newValArr...)
+				currentData[key] = existingValArr
+			} else {
+				// Check if the types are compatible
+				if reflect.TypeOf(existingValue) != reflect.TypeOf(value) {
+					return fmt.Errorf("Type mismatch for key '%s'", key)
+				}
+				// Update the value
+				currentData[key] = value
+			}
 		} else {
 			// If the key doesn't exist in the current data, add it
 			currentData[key] = value
 		}
 	}
-	return currentData
+	return nil
+}
+
+func normalizeSlice(slice interface{}) []interface{} {
+	s := reflect.ValueOf(slice)
+	if s.Kind() != reflect.Slice {
+		return nil
+	}
+	result := make([]interface{}, s.Len())
+	for i := 0; i < s.Len(); i++ {
+		result[i] = s.Index(i).Interface()
+	}
+	return result
 }
