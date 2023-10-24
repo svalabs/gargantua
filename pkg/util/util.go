@@ -82,6 +82,22 @@ func ReturnHTTPRaw(w http.ResponseWriter, r *http.Request, content string) {
 	fmt.Fprintf(w, "%s", content)
 }
 
+// DecodeJSONRequest parses the request body into an Item struct
+func DecodeJSONRequest(r *http.Request, v interface{}) error {
+	return json.NewDecoder(r.Body).Decode(v)
+}
+
+// Return a JSON response
+func ReturnJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
+	jsonContent, err := json.Marshal(payload)
+	if err != nil {
+		glog.Error(err)
+		ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, "Failed to marshal response")
+		return
+	}
+	ReturnHTTPContent(w, r, status, "application/json", jsonContent)
+}
+
 func GetHTTPErrorCode(httpStatus int) string {
 	switch httpStatus {
 	case 401:

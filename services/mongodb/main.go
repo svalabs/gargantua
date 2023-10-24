@@ -136,7 +136,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		glog.Error(err)
 	}
-	returnJSONResponse(w, r, http.StatusOK, items)
+	util.ReturnJSONResponse(w, r, http.StatusOK, items)
 }
 
 func getItem(w http.ResponseWriter, r *http.Request) {
@@ -154,7 +154,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnJSONResponse(w, r, http.StatusOK, item)
+	util.ReturnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func createItem(w http.ResponseWriter, r *http.Request) {
@@ -162,7 +162,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 
 	// Parse the request body into an Item struct
 	var item Item
-	if err := decodeJSONRequest(r, &item); err != nil {
+	if err := util.DecodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -173,14 +173,14 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnJSONResponse(w, r, http.StatusOK, item)
+	util.ReturnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
 	id := mux.Vars(r)["id"]
 	// Parse the request body into an Item struct
 	var item Item
-	if err := decodeJSONRequest(r, &item); err != nil {
+	if err := util.DecodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -199,7 +199,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnJSONResponse(w, r, http.StatusOK, item)
+	util.ReturnJSONResponse(w, r, http.StatusOK, item)
 }
 
 func appendDataToItem(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +208,7 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 
 	// Parse the request body into a map[string]interface{} to get the data to append
 	var requestData map[string]interface{}
-	if err := decodeJSONRequest(r, &requestData); err != nil {
+	if err := util.DecodeJSONRequest(r, &requestData); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
 		return
 	}
@@ -240,7 +240,7 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnJSONResponse(w, r, http.StatusOK, currentItem.Data)
+	util.ReturnJSONResponse(w, r, http.StatusOK, currentItem.Data)
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
@@ -264,23 +264,7 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 	util.ReturnHTTPMessage(w, r, http.StatusOK, "success", "Item deleted successfully")
 }
 
-// Parse the request body into an Item struct
-func decodeJSONRequest(r *http.Request, v interface{}) error {
-	return json.NewDecoder(r.Body).Decode(v)
-}
-
-// Return a JSON response
-func returnJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	if err := json.NewEncoder(w).Encode(payload); err != nil {
-		glog.Error(err)
-		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, "Failed to marshal response")
-	}
-}
-
 // Merge two JSON objects
-
 func mergeJSON(currentData map[string]interface{}, newData map[string]interface{}) error {
 	for key, value := range newData {
 		if existingValue, exists := currentData[key]; exists {
@@ -324,6 +308,7 @@ func mergeJSON(currentData map[string]interface{}, newData map[string]interface{
 	return nil
 }
 
+// convert slice into a slice of the empty interface type
 func normalizeSlice(slice interface{}) []interface{} {
 	s := reflect.ValueOf(slice)
 	if s.Kind() != reflect.Slice {
