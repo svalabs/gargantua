@@ -240,7 +240,7 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	returnJSONResponse(w, r, http.StatusOK, requestData)
+	returnJSONResponse(w, r, http.StatusOK, currentItem.Data)
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
