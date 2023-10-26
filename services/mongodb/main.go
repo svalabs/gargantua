@@ -82,7 +82,12 @@ func main() {
 	if err != nil {
 		glog.Fatal(err)
 	}
-	defer client.Disconnect(context.Background())
+	defer func(client *mongo.Client, ctx context.Context) {
+		err := client.Disconnect(ctx)
+		if err != nil {
+			glog.Error(err)
+		}
+	}(client, context.Background())
 
 	// Select MongoDB collection
 	collection = client.Database(dbName).Collection(collectionName)
@@ -102,12 +107,13 @@ func main() {
 }
 
 func SetupRoutes(r *mux.Router) {
-	r.HandleFunc("/api/items", getItems).Methods("GET")
-	r.HandleFunc("/api/items/{id}", getItem).Methods("GET")
-	r.HandleFunc("/api/items", createItem).Methods("POST")
-	r.HandleFunc("/api/items/{id}", updateItem).Methods("PUT")
-	r.HandleFunc("/api/items/{id}", deleteItem).Methods("DELETE")
-	r.HandleFunc("/api/items/{id}", appendDataToItem).Methods("PATCH")
+	path := "/api/items"
+	r.HandleFunc(path, getItems).Methods("GET")
+	r.HandleFunc(path+"/{id}", getItem).Methods("GET")
+	r.HandleFunc(path, createItem).Methods("POST")
+	r.HandleFunc(path+"/{id}", updateItem).Methods("PUT")
+	r.HandleFunc(path+"/{id}", deleteItem).Methods("DELETE")
+	r.HandleFunc(path+"/{id}", appendDataToItem).Methods("PATCH")
 	glog.V(2).Infof("API Routes are set up")
 }
 
@@ -119,7 +125,12 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
-	defer cur.Close(context.Background())
+	defer func(cur *mongo.Cursor, ctx context.Context) {
+		err := cur.Close(ctx)
+		if err != nil {
+			glog.Error(err)
+		}
+	}(cur, context.Background())
 
 	var items []Item
 	for cur.Next(context.Background()) {
@@ -259,8 +270,6 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
 		return
 	}
-
-	//todo check messageType
 	util.ReturnHTTPMessage(w, r, http.StatusOK, "success", "Item deleted successfully")
 }
 
@@ -287,7 +296,7 @@ func mergeJSON(currentData map[string]interface{}, newData map[string]interface{
 						return err
 					}
 				} else {
-					return fmt.Errorf("Key '%s' already exists and is an object", key)
+					return fmt.Errorf("Key '%s' already exists and is an object.", key)
 				}
 			} else if existingIsArray && newIsArray { // Check if both are arrays
 				existingValArr = append(existingValArr, newValArr...)
@@ -295,10 +304,10 @@ func mergeJSON(currentData map[string]interface{}, newData map[string]interface{
 			} else {
 				// Check if the types are compatible
 				if reflect.TypeOf(existingValue) != reflect.TypeOf(value) {
-					return fmt.Errorf("Type mismatch for key '%s'", key)
+					return fmt.Errorf("Type mismatch for key '%s'.", key)
 				}
-				// Update the value
-				currentData[key] = value
+				// Throw an error if attempting to overwrite an object
+				return fmt.Errorf("Key '%s' already exists and is not an array or object.", key)
 			}
 		} else {
 			// If the key doesn't exist in the current data, add it
