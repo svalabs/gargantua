@@ -87,15 +87,14 @@ func DecodeJSONRequest(r *http.Request, v interface{}) error {
 	return json.NewDecoder(r.Body).Decode(v)
 }
 
-// Return a JSON response
+// ReturnJSONResponse return a pretty JSON response
 func ReturnJSONResponse(w http.ResponseWriter, r *http.Request, status int, payload interface{}) {
-	jsonContent, err := json.Marshal(payload)
-	if err != nil {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	if err := json.NewEncoder(w).Encode(payload); err != nil {
 		glog.Error(err)
 		ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, "Failed to marshal response")
-		return
 	}
-	ReturnHTTPContent(w, r, status, "application/json", jsonContent)
 }
 
 func GetHTTPErrorCode(httpStatus int) string {
