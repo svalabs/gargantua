@@ -11,6 +11,7 @@ import (
 	"os"
 	"reflect"
 	"strconv"
+	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -34,6 +35,13 @@ var (
 
 	username string
 	password string
+
+	mutex sync.Mutex
+)
+
+const (
+	NOTFOUND       = "Item not found"
+	INVALIDPAYLOAD = "Invalid Request Payload"
 )
 
 func init() {
@@ -161,7 +169,7 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 	var item Item
 	if err := result.Decode(&item); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
 		return
 	}
 
@@ -170,11 +178,13 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received createItem")
+	mutex.Lock()
+	defer mutex.Unlock()
 
 	// Parse the request body into an Item struct
 	var item Item
 	if err := util.DecodeJSONRequest(r, &item); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
 		return
 	}
 
@@ -188,11 +198,14 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
+
+	mutex.Lock()
+	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
 	// Parse the request body into an Item struct
 	var item Item
 	if err := util.DecodeJSONRequest(r, &item); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
 		return
 	}
 
@@ -206,7 +219,7 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.MatchedCount == 0 {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
 		return
 	}
 
@@ -214,13 +227,15 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func appendDataToItem(w http.ResponseWriter, r *http.Request) {
+	mutex.Lock()
+	defer mutex.Unlock()
 	// Extract the item ID from the URL path parameter
 	id := mux.Vars(r)["id"]
 
 	// Parse the request body into a map[string]interface{} to get the data to append
 	var requestData map[string]interface{}
 	if err := util.DecodeJSONRequest(r, &requestData); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, "Invalid request payload")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
 		return
 	}
 
@@ -228,7 +243,7 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 	var currentItem Item
 	filter := bson.M{"_id": id}
 	if err := collection.FindOne(context.Background(), filter).Decode(&currentItem); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
 		return
 	}
 
@@ -255,10 +270,10 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
-	// Extract the item ID from the URL path parameter
+	mutex.Lock()
+	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
 
-	// Delete the item from the MongoDB collection
 	filter := bson.M{"_id": id}
 	result, err := collection.DeleteOne(context.Background(), filter)
 	if err != nil {
@@ -267,7 +282,7 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if result.DeletedCount == 0 {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, "Item not found")
+		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
 		return
 	}
 	util.ReturnHTTPMessage(w, r, http.StatusOK, "success", "Item deleted successfully")
