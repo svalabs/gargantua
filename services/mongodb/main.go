@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"flag"
 	"fmt"
 	"github.com/golang/glog"
@@ -44,6 +43,7 @@ const (
 	INVALIDPAYLOAD = "Invalid Request Payload"
 )
 
+// get parameters from flags for the mongoDB connection
 func init() {
 	flag.StringVar(&URI, "mongoURI", "mongodb://mongo-db-service.hobbyfarm.svc.cluster.local:27017", "URI of the mongodb")
 	flag.StringVar(&dbName, "dbName", "hobbyfarmDB", "Name of the mongodb")
@@ -127,6 +127,7 @@ func SetupRoutes(r *mux.Router) {
 
 func getItems(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received getItems")
+
 	// Fetch all items from the MongoDB collection
 	cur, err := collection.Find(context.Background(), bson.D{})
 	if err != nil {
@@ -140,6 +141,7 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		}
 	}(cur, context.Background())
 
+	// Iterate over each document and put it into an Item struct
 	var items []Item
 	for cur.Next(context.Background()) {
 		var item Item
@@ -149,9 +151,6 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 		}
 		items = append(items, item)
 	}
-	glog.Info(items)
-	content, err := json.Marshal(items)
-	glog.Info(content)
 	if err != nil {
 		glog.Error(err)
 	}
@@ -160,10 +159,9 @@ func getItems(w http.ResponseWriter, r *http.Request) {
 
 func getItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received getItem")
-	// Extract the item ID from the URL path parameter
-	id := mux.Vars(r)["id"]
 
-	// Find the item with the given ID in the MongoDB collection
+	// Extract ID from path parameter and find it in the db
+	id := mux.Vars(r)["id"]
 	filter := bson.M{"_id": id}
 	result := collection.FindOne(context.Background(), filter)
 
@@ -178,17 +176,18 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 
 func createItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received createItem")
+
 	mutex.Lock()
 	defer mutex.Unlock()
 
-	// Parse the request body into an Item struct
+	// Parse body into an Item struct
 	var item Item
 	if err := util.DecodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
 		return
 	}
 
-	// Insert the item into the MongoDB collection
+	// Insert the item into the DB
 	if _, err := collection.InsertOne(context.Background(), item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
@@ -198,11 +197,13 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func updateItem(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Received updateItem")
 
 	mutex.Lock()
 	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
-	// Parse the request body into an Item struct
+
+	// Parse body into an Item struct
 	var item Item
 	if err := util.DecodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
@@ -227,9 +228,10 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func appendDataToItem(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Received appendDataToItem")
+
 	mutex.Lock()
 	defer mutex.Unlock()
-	// Extract the item ID from the URL path parameter
 	id := mux.Vars(r)["id"]
 
 	// Parse the request body into a map[string]interface{} to get the data to append
@@ -247,18 +249,18 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Ensure 'Data' is a map[string]interface{}
+	// Ensure "Data" is a map[string]interface{}
 	if currentItem.Data == nil {
 		currentItem.Data = make(map[string]interface{})
 	}
 
-	// Merge the new data into the current data object
+	// Merge the new data into the current data object with helper method mergeJSON
 	if err := mergeJSON(currentItem.Data, requestData); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	// Update the 'data' field with the merged value
+	// Update the "data" field with the merged value
 	update := bson.M{"$set": bson.M{"data": currentItem.Data}}
 	_, err := collection.UpdateOne(context.Background(), filter, update)
 	if err != nil {
@@ -270,10 +272,11 @@ func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
+	glog.Info("Received deleteItem")
+
 	mutex.Lock()
 	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
-
 	filter := bson.M{"_id": id}
 	result, err := collection.DeleteOne(context.Background(), filter)
 	if err != nil {
@@ -290,49 +293,58 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 
 // Merge two JSON objects
 func mergeJSON(currentData map[string]interface{}, newData map[string]interface{}) error {
+	// Iterate over each key-value pair
 	for key, value := range newData {
+		// Check if the key exists in currentData
 		if existingValue, exists := currentData[key]; exists {
-			// Normalize array types
+			// Convert existingValue and value to []interface{}
 			existingValArr, existingIsArray := existingValue.([]interface{})
 			newValArr, newIsArray := value.([]interface{})
+
+			// If existingValue is not an array but a slice, normalize it to []interface{}
 			if !existingIsArray && reflect.TypeOf(existingValue).Kind() == reflect.Slice {
 				existingValArr = normalizeSlice(existingValue)
 				existingIsArray = true
 			}
+
+			// If value is not an array but a slice, normalize it to []interface{}
 			if !newIsArray && reflect.TypeOf(value).Kind() == reflect.Slice {
 				newValArr = normalizeSlice(value)
 				newIsArray = true
 			}
 
-			// Check if both are maps
+			// If both values are maps, merge them recursively
 			if existingMap, isMap := existingValue.(map[string]interface{}); isMap {
 				if newMap, isNewMap := value.(map[string]interface{}); isNewMap {
 					if err := mergeJSON(existingMap, newMap); err != nil {
 						return err
 					}
 				} else {
+					// If the existing value is a map but the new value is not, return an error
 					return fmt.Errorf("Key '%s' already exists and is an object.", key)
 				}
-			} else if existingIsArray && newIsArray { // Check if both are arrays
+			} else if existingIsArray && newIsArray { // If both values are arrays, append the new array to the existing one
+
 				existingValArr = append(existingValArr, newValArr...)
 				currentData[key] = existingValArr
 			} else {
-				// Check if the types are compatible
+				// If the types of the values are different, return an error
 				if reflect.TypeOf(existingValue) != reflect.TypeOf(value) {
 					return fmt.Errorf("Type mismatch for key '%s'.", key)
 				}
-				// Throw an error if attempting to overwrite an object
+				// If it is not a map or array, it is a basic type and it cannot merge basic types
 				return fmt.Errorf("Key '%s' already exists and is not an array or object.", key)
 			}
 		} else {
-			// If the key doesn't exist in the current data, add it
+			// If the key does not exist in the current data, add it
 			currentData[key] = value
 		}
 	}
+	// Return if merging completes without errors
 	return nil
 }
 
-// convert slice into a slice of the empty interface type
+// Convert slice into a slice of the empty interface type
 func normalizeSlice(slice interface{}) []interface{} {
 	s := reflect.ValueOf(slice)
 	if s.Kind() != reflect.Slice {
