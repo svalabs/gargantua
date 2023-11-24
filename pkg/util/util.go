@@ -14,12 +14,15 @@ import (
 	mrand "math/rand"
 
 	"github.com/golang/glog"
-	hfv1 "github.com/hobbyfarm/gargantua/pkg/apis/hobbyfarm.io/v1"
-	hfListers "github.com/hobbyfarm/gargantua/pkg/client/listers/hobbyfarm.io/v1"
+	hfv1 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v1"
+	hfListers "github.com/hobbyfarm/gargantua/v3/pkg/client/listers/hobbyfarm.io/v1"
 	"golang.org/x/crypto/ssh"
+	"google.golang.org/protobuf/encoding/protojson"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/client-go/util/retry"
 
 	"net/http"
@@ -29,7 +32,7 @@ import (
 	"strings"
 	"time"
 
-	hfClientset "github.com/hobbyfarm/gargantua/pkg/client/clientset/versioned"
+	hfClientset "github.com/hobbyfarm/gargantua/v3/pkg/client/clientset/versioned"
 )
 
 type HTTPMessage struct {
@@ -121,15 +124,6 @@ func UniqueStringSlice(stringSlice []string) []string {
 		}
 	}
 	return list
-}
-
-func StringInSlice(a string, list []string) bool {
-	for _, b := range list {
-		if b == a {
-			return true
-		}
-	}
-	return false
 }
 
 func GenerateResourceName(prefix string, input string, hashlength int) string {
@@ -539,4 +533,25 @@ func GetVMConfig(env *hfv1.Environment, vmt *hfv1.VirtualMachineTemplate) map[st
 	}
 
 	return config
+}
+
+func GetLock(lockName string, cfg *rest.Config) (resourcelock.Interface, error) {
+	hostname, err := os.Hostname()
+	if err != nil {
+		return nil, err
+	}
+
+	ns := GetReleaseNamespace()
+	return resourcelock.NewFromKubeconfig(resourcelock.LeasesResourceLock, ns, lockName, resourcelock.ResourceLockConfig{Identity: hostname}, cfg, 15*time.Second)
+}
+
+func GetProtoMarshaller() protojson.MarshalOptions {
+	return protojson.MarshalOptions{
+		EmitUnpopulated: true,
+		UseProtoNames:   true,
+	}
+}
+
+func StringPtr(s string) *string {
+	return &s
 }

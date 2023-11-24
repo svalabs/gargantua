@@ -4,13 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+
 	"github.com/golang/glog"
 	"github.com/gorilla/mux"
-	hfv1 "github.com/hobbyfarm/gargantua/pkg/apis/hobbyfarm.io/v1"
-	"github.com/hobbyfarm/gargantua/pkg/authclient"
-	"github.com/hobbyfarm/gargantua/pkg/rbacclient"
-	hfClientset "github.com/hobbyfarm/gargantua/pkg/client/clientset/versioned"
-	"github.com/hobbyfarm/gargantua/pkg/util"
+	hfv1 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v1"
+	hfClientset "github.com/hobbyfarm/gargantua/v3/pkg/client/clientset/versioned"
+	"github.com/hobbyfarm/gargantua/v3/pkg/rbac"
+	"github.com/hobbyfarm/gargantua/v3/pkg/util"
+	"github.com/hobbyfarm/gargantua/v3/protos/authn"
+	"github.com/hobbyfarm/gargantua/v3/protos/authr"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -20,17 +22,18 @@ type AdminPreparedPredefinedService struct {
 }
 
 type PredefinedServiceServer struct {
-	auth        *authclient.AuthClient
+	authnClient authn.AuthNClient
+	authrClient authr.AuthRClient
 	hfClientSet hfClientset.Interface
 	ctx         context.Context
 }
 
-
-func NewPredefinedServiceServer(authClient *authclient.AuthClient, hfClientset hfClientset.Interface, ctx context.Context) (*PredefinedServiceServer, error) {
+func NewPredefinedServiceServer(authnClient authn.AuthNClient, authrClient authr.AuthRClient, hfClientset hfClientset.Interface, ctx context.Context) (*PredefinedServiceServer, error) {
 	pss := PredefinedServiceServer{}
 
 	pss.hfClientSet = hfClientset
-	pss.auth = authClient
+	pss.authnClient = authnClient
+	pss.authrClient = authrClient
 	pss.ctx = ctx
 	return &pss, nil
 }
@@ -40,10 +43,16 @@ func (s PredefinedServiceServer) SetupRoutes(r *mux.Router) {
 	glog.V(2).Infof("set up routes for PredefinedServiceServer")
 }
 
-
 func (s PredefinedServiceServer) ListFunc(w http.ResponseWriter, r *http.Request) {
-	_, err := s.auth.AuthGrant(rbacclient.RbacRequest().HobbyfarmPermission("virtualmachinetemplates", rbacclient.VerbList), w, r)
+	user, err := rbac.AuthenticateRequest(r, s.authnClient)
 	if err != nil {
+		util.ReturnHTTPMessage(w, r, 401, "unauthorized", "authentication failed")
+		return
+	}
+
+	impersonatedUserId := user.GetId()
+	authrResponse, err := rbac.AuthorizeSimple(r, s.authrClient, impersonatedUserId, rbac.HobbyfarmPermission(rbac.ResourcePluralVMTemplate, rbac.VerbList))
+	if err != nil || !authrResponse.Success {
 		util.ReturnHTTPMessage(w, r, 403, "forbidden", "no access to list PredefinedServices")
 		return
 	}

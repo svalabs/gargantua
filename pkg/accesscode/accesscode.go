@@ -7,9 +7,9 @@ import (
 	"time"
 
 	"github.com/golang/glog"
-	hfv1 "github.com/hobbyfarm/gargantua/pkg/apis/hobbyfarm.io/v1"
-	hfClientset "github.com/hobbyfarm/gargantua/pkg/client/clientset/versioned"
-	"github.com/hobbyfarm/gargantua/pkg/util"
+	hfv1 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v1"
+	hfClientset "github.com/hobbyfarm/gargantua/v3/pkg/client/clientset/versioned"
+	"github.com/hobbyfarm/gargantua/v3/pkg/util"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -25,10 +25,6 @@ func NewAccessCodeClient(hfClientset hfClientset.Interface, ctx context.Context)
 	acc.hfClientSet = hfClientset
 	acc.ctx = ctx
 	return &acc, nil
-}
-
-func (acc AccessCodeClient) GetSomething(code string) error {
-	return nil
 }
 
 func (acc AccessCodeClient) GetAccessCodesWithOTACs(codes []string) ([]hfv1.AccessCode, error) {
