@@ -1,7 +1,7 @@
 ##### sdk image #####
-FROM golang:1.20.2 AS sdk
+FROM golang:1.21 AS sdk
 
-WORKDIR /go/src/github.com/hobbyfarm/gargantua/services/mongodb
+WORKDIR /go/src/github.com/hobbyfarm/gargantua/services/mongodbsvc
 COPY . .
 
 ENV GOOS=linux
@@ -14,7 +14,7 @@ RUN go install -v ./...
 ###### release image #####
 FROM alpine:latest
 
-COPY --from=sdk /go/bin/mongodb /usr/local/bin/
+COPY --from=sdk /go/bin/mongodbsvc /usr/local/bin/
 
 ENTRYPOINT ["mongodb"]
 CMD ["-v=9", "-logtostderr"]
