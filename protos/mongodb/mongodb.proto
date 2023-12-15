@@ -1,0 +1,38 @@
+syntax = "proto3";
+
+option go_package = "github.com/hobbyfarm/gargantua/v3/protos/mongodb";
+
+import "google/protobuf/empty.proto";
+
+service ItemService {
+  rpc GetItem(GetItemRequest) returns (GetItemResponse);
+  rpc CreateItem(CreateItemRequest) returns (CreateItemResponse);
+  rpc UpdateItem(UpdateItemRequest) returns (google.protobuf.Empty);
+  rpc DeleteItem(DeleteItemRequest) returns (google.protobuf.Empty);
+}
+
+message GetItemRequest {
+  string id = 1;
+}
+
+message GetItemResponse {
+  string id = 1;
+  map<string, string> data = 2;
+}
+
+message CreateItemRequest {
+  map<string, string> data = 1;
+}
+
+message CreateItemResponse {
+  string id = 1;
+}
+
+message UpdateItemRequest {
+  string id = 1;
+  map<string, string> data = 2;
+}
+
+message DeleteItemRequest {
+  string id = 1;
+}
