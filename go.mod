@@ -14,7 +14,7 @@ require (
 	github.com/rancher/terraform-controller v0.0.10-alpha1
 	github.com/rancher/wrangler v1.0.1
 	github.com/xeipuuv/gojsonschema v1.2.0
-	go.mongodb.org/mongo-driver v1.13.0
+		go.mongodb.org/mongo-driver v1.13.1
 	golang.org/x/crypto v0.11.0
 	golang.org/x/sync v0.2.0
 	google.golang.org/grpc v1.54.0
