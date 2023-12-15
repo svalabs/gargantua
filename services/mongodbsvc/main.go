@@ -10,7 +10,6 @@ import (
 	"os"
 	"reflect"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -34,8 +33,6 @@ var (
 
 	username string
 	password string
-
-	mutex sync.Mutex
 )
 
 const (
@@ -177,9 +174,6 @@ func getItem(w http.ResponseWriter, r *http.Request) {
 func createItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received createItem")
 
-	mutex.Lock()
-	defer mutex.Unlock()
-
 	// Parse body into an Item struct
 	var item Item
 	if err := util.DecodeJSONRequest(r, &item); err != nil {
@@ -187,8 +181,32 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Insert the item into the DB
-	if _, err := collection.InsertOne(context.Background(), item); err != nil {
+	session, err := collection.Database().Client().StartSession()
+	if err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer session.EndSession(context.Background())
+
+	err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		err := session.StartTransaction()
+		if err != nil {
+			return err
+		}
+
+		// Insert the item into the DB
+		if _, err := collection.InsertOne(sc, item); err != nil {
+			session.AbortTransaction(sc)
+			return err
+		}
+
+		if err := session.CommitTransaction(sc); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -199,28 +217,48 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 func updateItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received updateItem")
 
-	mutex.Lock()
-	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
-
-	// Parse body into an Item struct
 	var item Item
 	if err := util.DecodeJSONRequest(r, &item); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
 		return
 	}
 
-	// Update the item in the MongoDB collection
-	filter := bson.M{"_id": id}
-	update := bson.M{"$set": bson.M{"data": item.Data}}
-	result, err := collection.UpdateOne(context.Background(), filter, update)
+	session, err := collection.Database().Client().StartSession()
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	defer session.EndSession(context.Background())
 
-	if result.MatchedCount == 0 {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
+	err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		err := session.StartTransaction()
+		if err != nil {
+			return err
+		}
+
+		// Update the item in the MongoDB collection
+		filter := bson.M{"_id": id}
+		update := bson.M{"$set": bson.M{"data": item.Data}}
+		result, err := collection.UpdateOne(sc, filter, update)
+		if err != nil {
+			session.AbortTransaction(sc)
+			return err
+		}
+
+		if result.MatchedCount == 0 {
+			session.AbortTransaction(sc)
+			return fmt.Errorf(NOTFOUND)
+		}
+
+		if err := session.CommitTransaction(sc); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	if err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
@@ -229,65 +267,113 @@ func updateItem(w http.ResponseWriter, r *http.Request) {
 
 func appendDataToItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received appendDataToItem")
-
-	mutex.Lock()
-	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
 
-	// Parse the request body into a map[string]interface{} to get the data to append
 	var requestData map[string]interface{}
+	var updatedData map[string]interface{}
+
+	// Parse the request body into a map[string]interface{} to get the data to append
 	if err := util.DecodeJSONRequest(r, &requestData); err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, INVALIDPAYLOAD)
 		return
 	}
 
-	// Retrieve the current value of the 'data' field
-	var currentItem Item
-	filter := bson.M{"_id": id}
-	if err := collection.FindOne(context.Background(), filter).Decode(&currentItem); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
+	session, err := collection.Database().Client().StartSession()
+	if err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
+	defer session.EndSession(context.Background())
 
-	// Ensure "Data" is a map[string]interface{}
-	if currentItem.Data == nil {
-		currentItem.Data = make(map[string]interface{})
-	}
+	err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		err := session.StartTransaction()
+		if err != nil {
+			return err
+		}
 
-	// Merge the new data into the current data object with helper method mergeJSON
-	if err := mergeJSON(currentItem.Data, requestData); err != nil {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusBadRequest, err.Error())
-		return
-	}
+		// Retrieve the current value of the "data" field
+		var currentItem Item
+		filter := bson.M{"_id": id}
+		if err := collection.FindOne(sc, filter).Decode(&currentItem); err != nil {
+			session.AbortTransaction(sc)
+			return fmt.Errorf(NOTFOUND)
+		}
 
-	// Update the "data" field with the merged value
-	update := bson.M{"$set": bson.M{"data": currentItem.Data}}
-	_, err := collection.UpdateOne(context.Background(), filter, update)
+		// Ensure "Data" is a map[string]interface{}
+		if currentItem.Data == nil {
+			currentItem.Data = make(map[string]interface{})
+		}
+
+		// Merge the new data into the current data object
+		if err := mergeJSON(currentItem.Data, requestData); err != nil {
+			session.AbortTransaction(sc)
+			return err
+		}
+
+		// Update the "data" field with the merged value
+		update := bson.M{"$set": bson.M{"data": currentItem.Data}}
+		_, err = collection.UpdateOne(sc, filter, update)
+		if err != nil {
+			session.AbortTransaction(sc)
+			return err
+		}
+
+		if err := session.CommitTransaction(sc); err != nil {
+			return err
+		}
+		updatedData = currentItem.Data
+		return nil
+	})
+
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	util.ReturnJSONResponse(w, r, http.StatusOK, currentItem.Data)
+	util.ReturnJSONResponse(w, r, http.StatusOK, updatedData)
 }
 
 func deleteItem(w http.ResponseWriter, r *http.Request) {
 	glog.Info("Received deleteItem")
 
-	mutex.Lock()
-	defer mutex.Unlock()
 	id := mux.Vars(r)["id"]
-	filter := bson.M{"_id": id}
-	result, err := collection.DeleteOne(context.Background(), filter)
+	session, err := collection.Database().Client().StartSession()
+	if err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+	defer session.EndSession(context.Background())
+
+	err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
+		err := session.StartTransaction()
+		if err != nil {
+			return err
+		}
+
+		filter := bson.M{"_id": id}
+		result, err := collection.DeleteOne(sc, filter)
+		if err != nil {
+			session.AbortTransaction(sc)
+			return err
+		}
+
+		if result.DeletedCount == 0 {
+			session.AbortTransaction(sc)
+			return fmt.Errorf(NOTFOUND)
+		}
+
+		if err := session.CommitTransaction(sc); err != nil {
+			return err
+		}
+
+		return nil
+	})
+
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	if result.DeletedCount == 0 {
-		util.ReturnHTTPErrorMessage(w, r, http.StatusNotFound, NOTFOUND)
-		return
-	}
 	util.ReturnHTTPMessage(w, r, http.StatusOK, "success", "Item deleted successfully")
 }
 
