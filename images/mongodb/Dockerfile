@@ -16,5 +16,5 @@ FROM alpine:latest
 
 COPY --from=sdk /go/bin/mongodbsvc /usr/local/bin/
 
-ENTRYPOINT ["mongodb"]
+ENTRYPOINT ["mongodbsvc"]
 CMD ["-v=9", "-logtostderr"]
