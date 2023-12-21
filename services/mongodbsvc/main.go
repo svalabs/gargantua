@@ -42,7 +42,7 @@ const (
 
 // get parameters from flags for the mongoDB connection
 func init() {
-	flag.StringVar(&URI, "mongoURI", "mongodb://mongo-db-service.hobbyfarm.svc.cluster.local:27017", "URI of the mongodb")
+	flag.StringVar(&URI, "mongoURI", "", "URI of the mongodb")
 	flag.StringVar(&dbName, "dbName", "hobbyfarmDB", "Name of the mongodb")
 	flag.StringVar(&collectionName, "collection", "sessionData", "Name of the collection in the database")
 	flag.IntVar(&servicePort, "servicePort", 8080, "Port to run service on")
