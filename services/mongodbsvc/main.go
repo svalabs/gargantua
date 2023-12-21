@@ -181,6 +181,12 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Ensure collection exists to avoid transaction error
+	if err := ensureCollectionExists(collection); err != nil {
+		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
+		return
+	}
+
 	session, err := collection.Database().Client().StartSession()
 	if err != nil {
 		util.ReturnHTTPErrorMessage(w, r, http.StatusInternalServerError, err.Error())
@@ -189,8 +195,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 	defer session.EndSession(context.Background())
 
 	err = mongo.WithSession(context.Background(), session, func(sc mongo.SessionContext) error {
-		err := session.StartTransaction()
-		if err != nil {
+		if err := session.StartTransaction(); err != nil {
 			return err
 		}
 
@@ -203,6 +208,7 @@ func createItem(w http.ResponseWriter, r *http.Request) {
 		if err := session.CommitTransaction(sc); err != nil {
 			return err
 		}
+
 		return nil
 	})
 
@@ -441,4 +447,10 @@ func normalizeSlice(slice interface{}) []interface{} {
 		result[i] = s.Index(i).Interface()
 	}
 	return result
+}
+
+func ensureCollectionExists(collection *mongo.Collection) error {
+	// Perform the count operation in order to create the collection
+	_, err := collection.CountDocuments(context.Background(), bson.D{{}})
+	return err
 }
