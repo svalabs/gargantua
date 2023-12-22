@@ -450,7 +450,12 @@ func normalizeSlice(slice interface{}) []interface{} {
 }
 
 func ensureCollectionExists(collection *mongo.Collection) error {
-	// Perform the count operation in order to create the collection
-	_, err := collection.CountDocuments(context.Background(), bson.D{{}})
+	// Attempt to create an index, which will create the collection if it does not exist.
+	_, err := collection.Indexes().CreateOne(
+		context.Background(),
+		mongo.IndexModel{
+			Keys: bson.D{{"dummyField", 1}}, // Create an index on a dummy field.
+		},
+	)
 	return err
 }
