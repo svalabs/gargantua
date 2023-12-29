@@ -397,16 +397,20 @@ func mergeJSON(currentData map[string]interface{}, newData map[string]interface{
 				} else {
 					return fmt.Errorf("type mismatch for key '%s': existing value is map, new value is not", key)
 				}
-			case []interface{}:
-				// Existing value is a slice, append to it if new value is also a slice
-				if newValSlice, ok := newValue.([]interface{}); ok {
-					currentData[key] = append(existingValTyped, newValSlice...)
-				} else {
-					return fmt.Errorf("type mismatch for key '%s': existing value is slice, new value is not", key)
-				}
 			default:
-				// Existing and new value have different types
-				return fmt.Errorf("type mismatch for key '%s'", key)
+				// Check if both are slices
+				if reflect.TypeOf(existingValue).Kind() == reflect.Slice && reflect.TypeOf(newValue).Kind() == reflect.Slice {
+					// Convert both values to []interface{} and append
+					existingValSlice := normalizeSlice(existingValue)
+					newValSlice := normalizeSlice(newValue)
+					currentData[key] = append(existingValSlice, newValSlice...)
+				} else if reflect.TypeOf(existingValue) != reflect.TypeOf(newValue) {
+					// Different types and not both slices
+					return fmt.Errorf("type mismatch for key '%s'", key)
+				} else {
+					// Same types but not slices or maps, cannot merge
+					return fmt.Errorf("cannot merge non-slice, non-map types for key '%s'", key)
+				}
 			}
 		} else {
 			// Key does not exist in current data, add it
