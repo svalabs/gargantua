@@ -385,54 +385,34 @@ func deleteItem(w http.ResponseWriter, r *http.Request) {
 
 // Merge two JSON objects
 func mergeJSON(currentData map[string]interface{}, newData map[string]interface{}) error {
-	// Iterate over each key-value pair
-	for key, value := range newData {
-		// Check if the key exists in currentData
+	for key, newValue := range newData {
 		if existingValue, exists := currentData[key]; exists {
-			// Convert existingValue and value to []interface{}
-			existingValArr, existingIsArray := existingValue.([]interface{})
-			newValArr, newIsArray := value.([]interface{})
-
-			// If existingValue is not an array but a slice, normalize it to []interface{}
-			if !existingIsArray && reflect.TypeOf(existingValue).Kind() == reflect.Slice {
-				existingValArr = normalizeSlice(existingValue)
-				existingIsArray = true
-			}
-
-			// If value is not an array but a slice, normalize it to []interface{}
-			if !newIsArray && reflect.TypeOf(value).Kind() == reflect.Slice {
-				newValArr = normalizeSlice(value)
-				newIsArray = true
-			}
-
-			// If both values are maps, merge them recursively
-			if existingMap, isMap := existingValue.(map[string]interface{}); isMap {
-				if newMap, isNewMap := value.(map[string]interface{}); isNewMap {
-					if err := mergeJSON(existingMap, newMap); err != nil {
+			switch existingValTyped := existingValue.(type) {
+			case map[string]interface{}:
+				// Both values are maps, merge them
+				if newMap, ok := newValue.(map[string]interface{}); ok {
+					if err := mergeJSON(existingValTyped, newMap); err != nil {
 						return err
 					}
 				} else {
-					// If the existing value is a map but the new value is not, return an error
-					return fmt.Errorf("Key '%s' already exists and is an object.", key)
+					return fmt.Errorf("type mismatch for key '%s': existing value is map, new value is not", key)
 				}
-			} else if existingIsArray && newIsArray { // If both values are arrays, append the new array to the existing one
-
-				existingValArr = append(existingValArr, newValArr...)
-				currentData[key] = existingValArr
-			} else {
-				// If the types of the values are different, return an error
-				if reflect.TypeOf(existingValue) != reflect.TypeOf(value) {
-					return fmt.Errorf("Type mismatch for key '%s'.", key)
+			case []interface{}:
+				// Existing value is a slice, append to it if new value is also a slice
+				if newValSlice, ok := newValue.([]interface{}); ok {
+					currentData[key] = append(existingValTyped, newValSlice...)
+				} else {
+					return fmt.Errorf("type mismatch for key '%s': existing value is slice, new value is not", key)
 				}
-				// If it is not a map or array, it is a basic type and it cannot merge basic types
-				return fmt.Errorf("Key '%s' already exists and is not an array or object.", key)
+			default:
+				// Existing and new value have different types
+				return fmt.Errorf("type mismatch for key '%s'", key)
 			}
 		} else {
-			// If the key does not exist in the current data, add it
-			currentData[key] = value
+			// Key does not exist in current data, add it
+			currentData[key] = newValue
 		}
 	}
-	// Return if merging completes without errors
 	return nil
 }
 
