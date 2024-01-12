@@ -2,7 +2,7 @@
 FROM golang:1.21 AS sdk
 
 WORKDIR /go/src/github.com/hobbyfarm/gargantua/services/mongodbsvc
-COPY . .
+COPY ../../images/mongodb .
 
 ENV GOOS=linux
 ENV CGO_ENABLED=0
