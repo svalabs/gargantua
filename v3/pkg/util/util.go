@@ -361,7 +361,7 @@ func VirtualMachinesUsedDuringPeriod(hfClientset hfClientset.Interface, environm
 		return map[time.Time]map[string]int{}, map[string]int{}, fmt.Errorf("error parsing end time %v", err)
 	}
 
-	scheduledEvents, err := hfClientset.HobbyfarmV1().ScheduledEvents(GetReleaseNamespace()).List(ctx, metav1.ListOptions{})
+	scheduledEvents, err := hfClientset.HobbyfarmV2().ScheduledEvents(GetReleaseNamespace()).List(ctx, metav1.ListOptions{})
 	if err != nil {
 		return map[time.Time]map[string]int{}, map[string]int{}, fmt.Errorf("error retrieving scheduled events %v", err)
 	}

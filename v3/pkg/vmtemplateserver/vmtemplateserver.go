@@ -340,7 +340,7 @@ func (v VirtualMachineTemplateServer) DeleteFunc(w http.ResponseWriter, r *http.
 	}
 
 	// now check scheduledevents
-	scheduledEvents, err := v.hfClientSet.HobbyfarmV1().ScheduledEvents(util2.GetReleaseNamespace()).List(v.ctx, metav1.ListOptions{})
+	scheduledEvents, err := v.hfClientSet.HobbyfarmV2().ScheduledEvents(util2.GetReleaseNamespace()).List(v.ctx, metav1.ListOptions{})
 	if err != nil {
 		util2.ReturnHTTPMessage(w, r, 500, "internalerror",
 			"error listing scheduled events while attempting vmt deletion")

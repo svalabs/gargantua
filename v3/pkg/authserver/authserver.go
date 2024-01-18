@@ -59,7 +59,7 @@ func (a AuthServer) ListScheduledEventsFunc(w http.ResponseWriter, r *http.Reque
 
 	if err == nil {
 		for _, otac := range otacList.Items {
-			se, err := a.hfClientSet.HobbyfarmV1().ScheduledEvents(util2.GetReleaseNamespace()).Get(a.ctx, otac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
+			se, err := a.hfClientSet.HobbyfarmV2().ScheduledEvents(util2.GetReleaseNamespace()).Get(a.ctx, otac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
 			if err != nil {
 				continue
 			}
@@ -72,7 +72,7 @@ func (a AuthServer) ListScheduledEventsFunc(w http.ResponseWriter, r *http.Reque
 
 	//Getting single SEs should be faster than listing all of them and iterating them in O(n^2), in most cases users only have a hand full of accessCodes.
 	for _, ac := range accessCodes {
-		se, err := a.hfClientSet.HobbyfarmV1().ScheduledEvents(util2.GetReleaseNamespace()).Get(a.ctx, ac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
+		se, err := a.hfClientSet.HobbyfarmV2().ScheduledEvents(util2.GetReleaseNamespace()).Get(a.ctx, ac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
 		if err != nil {
 			glog.Error(err)
 			continue

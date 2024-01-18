@@ -237,7 +237,7 @@ func (sss SessionServer) NewSessionFunc(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	schedEvent, err := sss.hfClientSet.HobbyfarmV1().ScheduledEvents(util2.GetReleaseNamespace()).Get(sss.ctx, owners[0].Name, metav1.GetOptions{})
+	schedEvent, err := sss.hfClientSet.HobbyfarmV2().ScheduledEvents(util2.GetReleaseNamespace()).Get(sss.ctx, owners[0].Name, metav1.GetOptions{})
 	if err != nil {
 		util2.ReturnHTTPMessage(w, r, 500, "error", "unable to find scheduledEvent")
 		return

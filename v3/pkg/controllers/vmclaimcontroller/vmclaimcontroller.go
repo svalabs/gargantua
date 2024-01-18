@@ -659,7 +659,7 @@ func (v *VMClaimController) findScheduledEvent(accessCode string) (schedEvent st
 		return schedEvent, environments, err
 	}
 
-	se, err := v.hfClientSet.HobbyfarmV1().ScheduledEvents(util2.GetReleaseNamespace()).Get(v.ctx, ac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
+	se, err := v.hfClientSet.HobbyfarmV2().ScheduledEvents(util2.GetReleaseNamespace()).Get(v.ctx, ac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
 	if err != nil {
 		return schedEvent, environments, err
 	}

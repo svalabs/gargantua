@@ -62,13 +62,13 @@ func NewFilteredScheduledEventInformer(client versioned.Interface, namespace str
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.HobbyfarmV1().ScheduledEvents(namespace).List(context.TODO(), options)
+				return client.HobbyfarmV2().ScheduledEvents(namespace).List(context.TODO(), options)
 			},
 			WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.HobbyfarmV1().ScheduledEvents(namespace).Watch(context.TODO(), options)
+				return client.HobbyfarmV2().ScheduledEvents(namespace).Watch(context.TODO(), options)
 			},
 		},
 		&hobbyfarmiov1.ScheduledEvent{},

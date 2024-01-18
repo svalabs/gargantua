@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	hfv1 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v1"
+	hfv2 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v2"
 	hfClientset "github.com/hobbyfarm/gargantua/v3/pkg/client/clientset/versioned"
 	util2 "github.com/hobbyfarm/gargantua/v3/pkg/util"
 	"sort"
@@ -44,7 +45,7 @@ func (acc AccessCodeClient) GetAccessCodesWithOTACs(codes []string) ([]hfv1.Acce
 
 	//Append the value of onetime access codes to the list
 	for _, otac := range otacList.Items {
-		se, err := acc.hfClientSet.HobbyfarmV1().ScheduledEvents(util2.GetReleaseNamespace()).Get(acc.ctx, otac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
+		se, err := acc.hfClientSet.HobbyfarmV2().ScheduledEvents(util2.GetReleaseNamespace()).Get(acc.ctx, otac.Labels[util2.ScheduledEventLabel], metav1.GetOptions{})
 		if err != nil {
 			return nil, fmt.Errorf("error while retrieving one time access codes %v", err)
 		}

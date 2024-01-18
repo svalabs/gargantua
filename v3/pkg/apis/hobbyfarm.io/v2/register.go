@@ -27,6 +27,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&UserList{},
 		&Scenario{},
 		&ScenarioList{},
+		&ScheduledEvent{},
+		&ScheduledEventList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)
