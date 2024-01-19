@@ -20,4 +20,6 @@ package v2
 
 type ScenarioExpansion interface{}
 
+type ScheduledEventExpansion interface{}
+
 type UserExpansion interface{}

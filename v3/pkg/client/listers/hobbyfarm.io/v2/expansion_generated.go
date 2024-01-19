@@ -26,6 +26,14 @@ type ScenarioListerExpansion interface{}
 // ScenarioNamespaceLister.
 type ScenarioNamespaceListerExpansion interface{}
 
+// ScheduledEventListerExpansion allows custom methods to be added to
+// ScheduledEventLister.
+type ScheduledEventListerExpansion interface{}
+
+// ScheduledEventNamespaceListerExpansion allows custom methods to be added to
+// ScheduledEventNamespaceLister.
+type ScheduledEventNamespaceListerExpansion interface{}
+
 // UserListerExpansion allows custom methods to be added to
 // UserLister.
 type UserListerExpansion interface{}

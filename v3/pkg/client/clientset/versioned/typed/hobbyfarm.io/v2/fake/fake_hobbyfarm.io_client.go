@@ -32,6 +32,10 @@ func (c *FakeHobbyfarmV2) Scenarios(namespace string) v2.ScenarioInterface {
 	return &FakeScenarios{c, namespace}
 }
 
+func (c *FakeHobbyfarmV2) ScheduledEvents(namespace string) v2.ScheduledEventInterface {
+	return &FakeScheduledEvents{c, namespace}
+}
+
 func (c *FakeHobbyfarmV2) Users(namespace string) v2.UserInterface {
 	return &FakeUsers{c, namespace}
 }

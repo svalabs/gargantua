@@ -29,6 +29,7 @@ import (
 type HobbyfarmV2Interface interface {
 	RESTClient() rest.Interface
 	ScenariosGetter
+	ScheduledEventsGetter
 	UsersGetter
 }
 
@@ -39,6 +40,10 @@ type HobbyfarmV2Client struct {
 
 func (c *HobbyfarmV2Client) Scenarios(namespace string) ScenarioInterface {
 	return newScenarios(c, namespace)
+}
+
+func (c *HobbyfarmV2Client) ScheduledEvents(namespace string) ScheduledEventInterface {
+	return newScheduledEvents(c, namespace)
 }
 
 func (c *HobbyfarmV2Client) Users(namespace string) UserInterface {

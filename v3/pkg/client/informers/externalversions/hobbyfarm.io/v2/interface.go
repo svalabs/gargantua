@@ -26,6 +26,8 @@ import (
 type Interface interface {
 	// Scenarios returns a ScenarioInformer.
 	Scenarios() ScenarioInformer
+	// ScheduledEvents returns a ScheduledEventInformer.
+	ScheduledEvents() ScheduledEventInformer
 	// Users returns a UserInformer.
 	Users() UserInformer
 }
@@ -44,6 +46,11 @@ func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakList
 // Scenarios returns a ScenarioInformer.
 func (v *version) Scenarios() ScenarioInformer {
 	return &scenarioInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// ScheduledEvents returns a ScheduledEventInformer.
+func (v *version) ScheduledEvents() ScheduledEventInformer {
+	return &scheduledEventInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }
 
 // Users returns a UserInformer.

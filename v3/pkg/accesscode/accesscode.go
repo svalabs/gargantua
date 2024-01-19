@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	hfv1 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v1"
-	hfv2 "github.com/hobbyfarm/gargantua/v3/pkg/apis/hobbyfarm.io/v2"
 	hfClientset "github.com/hobbyfarm/gargantua/v3/pkg/client/clientset/versioned"
 	util2 "github.com/hobbyfarm/gargantua/v3/pkg/util"
 	"sort"

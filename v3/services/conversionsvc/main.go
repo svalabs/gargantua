@@ -10,6 +10,7 @@ import (
 	"github.com/gorilla/mux"
 	"github.com/hobbyfarm/gargantua/services/conversionsvc/v3/internal/conversion"
 	"github.com/hobbyfarm/gargantua/services/conversionsvc/v3/internal/conversion/scenario"
+	"github.com/hobbyfarm/gargantua/services/conversionsvc/v3/internal/conversion/scheduledevent"
 	"github.com/hobbyfarm/gargantua/services/conversionsvc/v3/internal/conversion/user"
 	"github.com/hobbyfarm/gargantua/services/conversionsvc/v3/internal/validation"
 	"github.com/hobbyfarm/gargantua/v3/pkg/microservices"
@@ -40,7 +41,8 @@ func main() {
 
 	user.Init()
 	scenario.Init()
-	//ToDo scenario scheduledEvent
+	scheduledevent.Init()
+
 	conversionRouter := mux.NewRouter()
 	conversion.New(conversionRouter, apiExtensionsClient, string(ca))
 
