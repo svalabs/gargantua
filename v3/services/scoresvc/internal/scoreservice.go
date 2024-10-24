@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/golang/glog"
@@ -18,6 +19,8 @@ import (
 
 const (
 	DEFAULT_COOLDOWN_DURATION = time.Hour * 1
+	SCAN_CACHE_PREFIX         = "scan_"
+	COOLDOWN_PREFIX           = "cooldown_"
 )
 
 type Cooldown struct {
@@ -87,7 +90,7 @@ func (s *ScoreServer) AddScoreFunc(w http.ResponseWriter, r *http.Request) {
 
 	if newScore.Code != "" {
 		// Check if this score.code is on cooldown
-		codeCooldownCacheId := "scan_" + newScore.Code + "_cooldown"
+		codeCooldownCacheId := COOLDOWN_PREFIX + newScore.Code
 		_, exp, found := s.Cache.GetWithExpiration(codeCooldownCacheId)
 
 		if found {
@@ -153,8 +156,8 @@ func (s *ScoreServer) ScanFunc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	codeCacheId := "scan_" + code
-	scanner_cooldown_id := codeCacheId + "_cooldown"
+	codeCacheId := SCAN_CACHE_PREFIX + code
+	scanner_cooldown_id := COOLDOWN_PREFIX + code
 
 	// Retrieve existing scan from cache
 	_, expiration, found := s.Cache.GetWithExpiration(scanner_cooldown_id)
@@ -259,13 +262,13 @@ func (s *ScoreServer) GetTimeout() time.Duration {
 func (s *ScoreServer) SendNotification(code string) {
 	glog.Infof("Trying to send notification for ", code)
 	teamsWebhookUrl, found := os.LookupEnv("WEBHOOK_URL")
-	if !found {
+	if !found || teamsWebhookUrl == "" {
 		glog.Infof("WEBHOOK_URL not found")
 		return
 	}
 
 	baseUrl, found := os.LookupEnv("BASE_URL")
-	if !found {
+	if !found || baseUrl == "" {
 		glog.Infof("BASE_URL not found")
 		return
 	}
@@ -338,6 +341,30 @@ func (s *ScoreServer) SendNotification(code string) {
 	}
 
 	glog.Infof("Message sent successfully")
+}
+
+func (s *ScoreServer) GetCodes(w http.ResponseWriter, r *http.Request) {
+	m := make(map[string]bool)
+	a := []string{}
+
+	for i, _ := range s.Cache.Items() {
+		if strings.HasPrefix(i, SCAN_CACHE_PREFIX) {
+			if m[i] {
+				continue
+			}
+			a = append(a, strings.TrimPrefix(i, SCAN_CACHE_PREFIX))
+			m[i] = true
+		}
+	}
+
+	// Marshal the map into a JSON string.
+	jsonData, err := json.Marshal(a)
+	if err != nil {
+		glog.Errorf("Error creating JSON payload:", err)
+		return
+	}
+
+	util.ReturnHTTPContent(w, r, 200, "ok", jsonData)
 }
 
 // top10Scores returns a LanguageLeaderboard with only the top 10 scores, ranked by score in descending order.
