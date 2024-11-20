@@ -28,9 +28,10 @@ type Cooldown struct {
 }
 
 type Score struct {
-	Name  string `json:"name"`
-	Score int    `json:"score"`
-	Code  string `json:"code"`
+	Name  string                 `json:"name"`
+	Score int                    `json:"score"`
+	Code  string                 `json:"code"`
+	X     map[string]interface{} `json:"x,omitempty"` // This holds all other datapoints to store like average command size which can be added withouth chaning the backend
 }
 
 type LanguageLeaderboard struct {
