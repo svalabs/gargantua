@@ -1,0 +1,57 @@
+VERSION 0.8
+
+# target for fetching v3 go dependencies
+deps-v3:
+    FROM golang:1.21.13-alpine3.20
+    WORKDIR /app/v3
+    COPY go.mod go.sum .
+    RUN go mod download
+    SAVE ARTIFACT go.mod AS LOCAL go.mod
+    SAVE ARTIFACT go.sum AS LOCAL go.sum
+
+# target for fetching service go dependencies
+deps-service:
+    ARG --required SERVICE_NAME
+    FROM +deps-v3
+    WORKDIR /app/v3/services/${SERVICE_NAME}
+    COPY services/${SERVICE_NAME}/go.mod services/${SERVICE_NAME}/go.sum .
+    RUN go mod download
+    SAVE ARTIFACT go.mod AS LOCAL services/${SERVICE_NAME}/go.mod
+    SAVE ARTIFACT go.sum AS LOCAL services/${SERVICE_NAME}/go.sum
+
+# target to copy over source files
+artifact:
+    FROM +deps-service
+    COPY . /app/v3
+
+# target for building the go-binary
+# supports goos (default linux) and goarch (default amd64)
+build:
+    FROM +artifact
+    ARG GOOS='linux'
+    ARG GOARCH='amd64'
+    RUN CGO_ENABLED=0 GOOS=$GOOS GOARCH=$GOARCH go build -ldflags="-s -w" -o /output/app
+    SAVE ARTIFACT /output/app
+
+# target to update the dependencies in go.mod
+update-deps:
+    FROM +artifact
+    RUN go get -u ./...
+    SAVE ARTIFACT go.mod AS LOCAL go.mod
+    SAVE ARTIFACT go.sum AS LOCAL go.sum
+
+# builds the docker image containing the go-binary which is placed at /home/app/app
+docker:
+    ARG --required SERVICE_NAME
+    ARG TARGETARCH # like arm64, amd64... (earthly built-in)
+    ARG TARGETPLATFORM # like linux/arm64, linux/amd64... (earthly built-in)
+    # target is referenced from root Earthfile
+    FROM --platform=$TARGETPLATFORM ../+docker-base
+    COPY (+build/app --SERVICE_NAME=$SERVICE_NAME --GOARCH=$TARGETARCH) /home/app/app
+    SAVE IMAGE ${SERVICE_NAME}:latest
+
+# builds the docker image for linux/amd64 and linux/arm64
+docker-all-platform:
+    ARG --required SERVICE_NAME
+    # parallel build execution
+    BUILD --platform=linux/amd64 --platform=linux/arm64/v8 +docker --SERVICE_NAME=$SERVICE_NAME

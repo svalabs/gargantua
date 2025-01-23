@@ -11,6 +11,7 @@ require (
 	github.com/golang/glog v1.1.2
 	github.com/gorilla/mux v1.8.0
 	github.com/hobbyfarm/gargantua/v3 v3.0.0-00010101000000-000000000000
+	github.com/stretchr/testify v1.8.2
 	google.golang.org/grpc v1.58.3
 	google.golang.org/protobuf v1.31.0
 	k8s.io/apimachinery v0.28.2
@@ -42,11 +43,13 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/peterhellberg/duration v0.0.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pmezard/go-difflib v1.0.1-0.20181226105442-5d4384ee4fb2 // indirect
 	github.com/rancher/lasso v0.0.0-20210616224652-fc3ebd901c08 // indirect
 	github.com/rancher/terraform-controller v0.0.10-alpha1 // indirect
 	github.com/rancher/wrangler v1.0.1 // indirect
 	github.com/sirupsen/logrus v1.9.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
+	github.com/stretchr/objx v0.5.0 // indirect
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v1.2.0 // indirect

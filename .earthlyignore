@@ -1,0 +1,14 @@
+.github
+.git
+.idea/
+.vscode/
+deploy/
+cicd/
+artifacts/
+*.md
+*.sh
+.dockerignore
+.gitignore
+**/Dockerfile
+**/docker-compose.yaml
+**/Earthfile
