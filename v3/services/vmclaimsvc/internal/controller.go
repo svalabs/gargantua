@@ -89,7 +89,7 @@ func NewVMClaimController(
 	vmClaimController.SetWorkScheduler(vmClaimController)
 
 	vmInformer := hfInformerFactory.Hobbyfarm().V1().VirtualMachines().Informer()
-	_, err :=vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
+	_, err := vmInformer.AddEventHandler(cache.ResourceEventHandlerFuncs{
 		UpdateFunc: vmClaimController.update,
 	})
 	if err != nil {
@@ -101,21 +101,21 @@ func NewVMClaimController(
 
 func (v *VMClaimController) update(oldVirtualMachineObject, newVirtualMachineObject interface{}) {
 	oldVirtualMachine, ok := oldVirtualMachineObject.(*hfv1.VirtualMachine)
-    if !ok {
-        glog.Errorf("failed to cast old object to *hfv1.VirtualMachine")
-        return
-    }
+	if !ok {
+		glog.Errorf("failed to cast old object to *hfv1.VirtualMachine")
+		return
+	}
 	newVirtualMachine, ok := newVirtualMachineObject.(*hfv1.VirtualMachine)
-    if !ok {
-        glog.Errorf("failed to cast new object to *hfv1.VirtualMachine")
-        return
-    }
-    if oldVirtualMachine.Status.Status != hfv1.VmStatusRunning && newVirtualMachine.Status.Status == hfv1.VmStatusRunning {
-        if newVirtualMachine.Spec.VirtualMachineClaimId != "" {
-            glog.Infof("notified vm %s status changed to running for vmclaim: %s", newVirtualMachine.Name, newVirtualMachine.Spec.VirtualMachineClaimId)
-            v.internalVmClaimServer.vmClaimWorkqueue.Add(newVirtualMachine.Spec.VirtualMachineClaimId)
-        }
-    }
+	if !ok {
+		glog.Errorf("failed to cast new object to *hfv1.VirtualMachine")
+		return
+	}
+	if oldVirtualMachine.Status.Status != hfv1.VmStatusRunning && newVirtualMachine.Status.Status == hfv1.VmStatusRunning {
+		if newVirtualMachine.Spec.VirtualMachineClaimId != "" {
+			glog.Infof("notified vm %s status changed to running for vmclaim: %s", newVirtualMachine.Name, newVirtualMachine.Spec.VirtualMachineClaimId)
+			v.internalVmClaimServer.vmClaimWorkqueue.Add(newVirtualMachine.Spec.VirtualMachineClaimId)
+		}
+	}
 }
 
 func (v *VMClaimController) Reconcile(objName string) error {
@@ -138,13 +138,20 @@ func (v *VMClaimController) Reconcile(objName string) error {
 	return nil
 }
 
+func (v *VMClaimController) taintVMClaim(tainted bool, vmc *vmclaimpb.VMClaim) error {
+	_, err := v.internalVmClaimServer.UpdateVMClaimStatus(v.Context, &vmclaimpb.UpdateVMClaimStatusRequest{
+		Id:      vmc.GetId(),
+		Tainted: wrapperspb.Bool(tainted),
+	})
+	return err
+}
+
 func (v *VMClaimController) updateVMClaimStatus(bound bool, ready bool, vmc *vmclaimpb.VMClaim) error {
 	_, err := v.internalVmClaimServer.UpdateVMClaimStatus(v.Context, &vmclaimpb.UpdateVMClaimStatusRequest{
 		Id:    vmc.GetId(),
 		Bound: wrapperspb.Bool(bound),
 		Ready: wrapperspb.Bool(ready),
 	})
-
 	return err
 }
 
@@ -183,7 +190,13 @@ func (v *VMClaimController) processVMClaim(vmc *vmclaimpb.VMClaim) (err error) {
 	if vmc.Status.Bound && !vmc.Status.Ready {
 		// reconcile triggered by VM being ready
 		// lets check the VM's
-		ready, err := v.checkVMStatus(vmc)
+		ready, errorduringprovisioning, err := v.checkVMStatus(vmc)
+
+		if errorduringprovisioning {
+			v.taintVMClaim(true, vmc)
+			return nil
+		}
+
 		if err != nil {
 			glog.Errorf("error checking vmStatus for vmc: %s %v", vmc.GetId(), err)
 			return err
@@ -502,21 +515,23 @@ func (v *VMClaimController) findSuitableEnvironmentForVMTemplate(environments []
 	return &environmentpb.Environment{}, &dbconfigpb.DynamicBindConfig{}, fmt.Errorf("no suitable environment found. capacity reached")
 }
 
-func (v *VMClaimController) checkVMStatus(vmc *vmclaimpb.VMClaim) (ready bool, err error) {
+func (v *VMClaimController) checkVMStatus(vmc *vmclaimpb.VMClaim) (ready bool, errorduringprovisioning bool, err error) {
 	ready = true
 	for _, vmTemplate := range vmc.Vms {
 		vm, err := v.vmClient.GetVM(v.Context, &generalpb.GetRequest{Id: vmTemplate.GetVmId()})
 		if err != nil {
-			return ready, err
+			return ready, false, err
 		}
 		if vm.Status != nil && vm.Status.Status == string(hfv1.VmStatusRunning) {
 			ready = ready && true
+		} else if vm.Status != nil && vm.Status.Status == string(hfv1.VmStatusErrorDuringProvisioning) {
+			return ready, true, fmt.Errorf("Error during provisioning of VM %s in VMC %s", vm.GetId(), vmc.GetId())
 		} else {
 			ready = ready && false
 		}
 	}
 
-	return ready, err
+	return ready, false, err
 }
 
 func (v *VMClaimController) findScheduledEvent(accessCode string) (schedEvent string, environments map[string]*scheduledeventpb.VMTemplateCountMap, err error) {

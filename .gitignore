@@ -18,6 +18,7 @@ artifacts/testing
 # docker-compose enviornment variables
 /.env
 
+Makefile
 kubeconfig
 ko
 

@@ -8,10 +8,11 @@ import (
 type VmStatus string
 
 const (
-	VmStatusRFP         VmStatus = "readyforprovisioning"
-	VmStatusProvisioned VmStatus = "provisioned"
-	VmStatusRunning     VmStatus = "running"
-	VmStatusTerminating VmStatus = "terminating"
+	VmStatusRFP                     VmStatus = "readyforprovisioning"
+	VmStatusProvisioned             VmStatus = "provisioned"
+	VmStatusRunning                 VmStatus = "running"
+	VmStatusTerminating             VmStatus = "terminating"
+	VmStatusErrorDuringProvisioning VmStatus = "errorduringprovisioning"
 )
 
 // +genclient
