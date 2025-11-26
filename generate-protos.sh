@@ -1,7 +1,7 @@
 #!/bin/bash
 set -eo pipefail
 
-BASE_IMAGE="golang:1.23.6-alpine3.21"
+BASE_IMAGE="golang:1.25.4-alpine3.21"
 IMAGE_TAG="hobbyfarm-proto-builder:latest"
 PROTOC_VERSION="29.3"
 PROTOC_GEN_GO_VERSION="v1.36.5"
