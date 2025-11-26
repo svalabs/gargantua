@@ -53,7 +53,7 @@ message UpdateVMClaimRequest {
 message UpdateVMClaimStatusRequest {
     string id = 1;
     string bind_mode = 2;
-    google.protobuf.UInt32Value static_bind_attempts = 3;
+    google.protobuf.BoolValue error = 3;
     google.protobuf.BoolValue bound = 4;
     google.protobuf.BoolValue ready = 5;
     google.protobuf.BoolValue tainted = 6;
@@ -61,7 +61,7 @@ message UpdateVMClaimStatusRequest {
 
 message VMClaimStatus {
     string bind_mode = 1;
-    uint32 static_bind_attempts = 2;
+    bool error = 2;
     bool bound = 3;
     bool ready = 4;
     bool tainted = 5;

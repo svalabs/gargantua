@@ -106,11 +106,11 @@ func (s *GrpcVMClaimServer) GetVMClaim(ctx context.Context, req *generalpb.GetRe
 	}
 
 	status := &vmclaimpb.VMClaimStatus{
-		BindMode:           vmc.Status.BindMode,
-		StaticBindAttempts: uint32(vmc.Status.StaticBindAttempts),
-		Bound:              vmc.Status.Bound,
-		Ready:              vmc.Status.Ready,
-		Tainted:            vmc.Status.Tainted,
+		BindMode: vmc.Status.BindMode,
+		Error:    vmc.Status.Error,
+		Bound:    vmc.Status.Bound,
+		Ready:    vmc.Status.Ready,
+		Tainted:  vmc.Status.Tainted,
 	}
 
 	var deletionTimeStamp *timestamppb.Timestamp
@@ -196,7 +196,7 @@ func (s *GrpcVMClaimServer) UpdateVMClaimStatus(ctx context.Context, req *vmclai
 		return &emptypb.Empty{}, hferrors.GrpcIdNotSpecifiedError(req)
 	}
 	bindMode := req.GetBindMode()
-	staticBindAttempts := req.GetStaticBindAttempts()
+	vmcError := req.GetError()
 	bound := req.GetBound()
 	ready := req.GetReady()
 	tainted := req.GetTainted()
@@ -217,8 +217,8 @@ func (s *GrpcVMClaimServer) UpdateVMClaimStatus(ctx context.Context, req *vmclai
 			vmc.Status.BindMode = bindMode
 		}
 
-		if staticBindAttempts != nil {
-			vmc.Status.StaticBindAttempts = int(staticBindAttempts.Value)
+		if vmcError != nil {
+			vmc.Status.Error = vmcError.Value
 		}
 
 		if bound != nil {
@@ -291,11 +291,11 @@ func (s *GrpcVMClaimServer) ListVMClaim(ctx context.Context, listOptions *genera
 		}
 
 		status := &vmclaimpb.VMClaimStatus{
-			BindMode:           vmc.Status.BindMode,
-			StaticBindAttempts: uint32(vmc.Status.StaticBindAttempts),
-			Bound:              vmc.Status.Bound,
-			Ready:              vmc.Status.Ready,
-			Tainted:            vmc.Status.Tainted,
+			BindMode: vmc.Status.BindMode,
+			Error:    vmc.Status.Error,
+			Bound:    vmc.Status.Bound,
+			Ready:    vmc.Status.Ready,
+			Tainted:  vmc.Status.Tainted,
 		}
 
 		var deletionTimeStamp *timestamppb.Timestamp

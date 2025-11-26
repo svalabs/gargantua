@@ -30,11 +30,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-const (
-	StaticBindAttemptThreshold  int = 3
-	DynamicBindAttemptThreshold int = 2
-)
-
 type VMClaimController struct {
 	controllers.DelayingWorkqueueController
 	controllers.Reconciler
@@ -138,10 +133,10 @@ func (v *VMClaimController) Reconcile(objName string) error {
 	return nil
 }
 
-func (v *VMClaimController) taintVMClaim(tainted bool, vmc *vmclaimpb.VMClaim) error {
+func (v *VMClaimController) updateVMClaimToError(vmcError bool, vmc *vmclaimpb.VMClaim) error {
 	_, err := v.internalVmClaimServer.UpdateVMClaimStatus(v.Context, &vmclaimpb.UpdateVMClaimStatusRequest{
-		Id:      vmc.GetId(),
-		Tainted: wrapperspb.Bool(tainted),
+		Id:    vmc.GetId(),
+		Error: wrapperspb.Bool(vmcError),
 	})
 	return err
 }
@@ -193,7 +188,8 @@ func (v *VMClaimController) processVMClaim(vmc *vmclaimpb.VMClaim) (err error) {
 		ready, errorduringprovisioning, err := v.checkVMStatus(vmc)
 
 		if errorduringprovisioning {
-			v.taintVMClaim(true, vmc)
+			glog.Errorf("Error during provisioning of at least one VM. Updating VMC status of %s", vmc.GetId())
+			v.updateVMClaimToError(true, vmc)
 			return nil
 		}
 

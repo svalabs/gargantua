@@ -84,11 +84,11 @@ type VirtualMachineClaimSpec struct {
 }
 
 type VirtualMachineClaimStatus struct {
-	BindMode           string `json:"bind_mode"`
-	StaticBindAttempts int    `json:"static_bind_attempts"`
-	Bound              bool   `json:"bound"`
-	Ready              bool   `json:"ready"`
-	Tainted            bool   `json:"tainted"` // If tainted, we should delete the VM's underneath then delete ourself...
+	BindMode string `json:"bind_mode"`
+	Error    bool   `json:"error"`
+	Bound    bool   `json:"bound"`
+	Ready    bool   `json:"ready"`
+	Tainted  bool   `json:"tainted"` // If tainted, we should delete the VM's underneath then delete ourself...
 }
 
 type VirtualMachineClaimVM struct {

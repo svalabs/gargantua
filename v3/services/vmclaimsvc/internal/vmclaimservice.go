@@ -24,7 +24,7 @@ type PreparedVirtualMachineClaim struct {
 	DynamicCapable      bool                            `json:"dynamic_bind_capable"`
 	BaseName            string                          `json:"base_name"`
 	BindMode            string                          `json:"bind_mode"`
-	StaticBindAttempts  uint32                          `json:"static_bind_attempts"`
+	Error               bool                            `json:"error"`
 	Bound               bool                            `json:"bound"`
 	Ready               bool                            `json:"ready"`
 	Tainted             bool                            `json:"tainted"`
@@ -76,7 +76,7 @@ func (vmcs VMClaimServer) GetVMClaimFunc(w http.ResponseWriter, r *http.Request)
 		DynamicCapable:      vmc.GetDynamicCapable(),
 		BaseName:            vmc.GetBaseName(),
 		BindMode:            vmc.GetStatus().GetBindMode(),
-		StaticBindAttempts:  vmc.GetStatus().GetStaticBindAttempts(),
+		Error:               vmc.GetStatus().GetError(),
 		Bound:               vmc.GetStatus().GetBound(),
 		Ready:               vmc.GetStatus().GetReady(),
 		Tainted:             vmc.GetStatus().GetTainted(),

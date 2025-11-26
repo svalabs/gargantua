@@ -18,6 +18,7 @@ func (vmci VMClaimCRDInstaller) GenerateCRDs() []crder.CRD {
 				AddVersion("v1", &v1.VirtualMachineClaim{}, func(cv *crder.Version) {
 					cv.
 						WithColumn("BindMode", ".status.bind_mode").
+						WithColumn("Error", ".status.error").
 						WithColumn("Bound", ".status.bound").
 						WithColumn("Ready", ".status.ready").
 						WithStatus()
