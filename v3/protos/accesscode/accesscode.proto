@@ -7,6 +7,7 @@ option go_package = "github.com/hobbyfarm/gargantua/v3/protos/accesscode;accessc
 import "general/general.proto";
 import "google/protobuf/empty.proto";
 import "google/protobuf/wrappers.proto";
+import "google/protobuf/timestamp.proto";
 
 // Service definition
 service AccessCodeSvc {
@@ -22,6 +23,7 @@ service AccessCodeSvc {
     rpc CreateOtac (CreateOtacRequest) returns (OneTimeAccessCode);
     rpc GetOtac (general.GetRequest) returns (OneTimeAccessCode);
     rpc UpdateOtac (OneTimeAccessCode) returns (google.protobuf.Empty);
+    rpc UpdateOtacStatus (UpdateOneTimeAccessCodeStatusRequest) returns (google.protobuf.Empty);
     rpc DeleteOtac (general.ResourceId) returns (google.protobuf.Empty);
     rpc DeleteCollectionOtac (general.ListOptions) returns (google.protobuf.Empty);
     rpc ListOtac (general.ListOptions) returns (ListOtacsResponse);
@@ -48,6 +50,26 @@ message OneTimeAccessCode {
     string redeemed_timestamp = 4;
     string max_duration = 5;
     map<string, string> labels = 6;
+    OneTimeAccessCodeStatus status = 7;
+}
+
+message UpdateOneTimeAccessCodeStatusRequest {
+    string id = 1;
+    OneTimeAccessCodeStatus status = 2;
+}
+
+message OneTimeAccessCodeStatus {
+    OTACNotifications notifications = 1;
+}
+
+message OTACNotifications {
+    ExpiryNotification expiry = 1;
+}
+
+message ExpiryNotification {
+    // key: window duration (e.g. "72h", "48h", "24h")
+    // value: time when that window triggers/expires
+    map<string, google.protobuf.Timestamp> windows = 1;
 }
 
 message ListOtacsResponse {

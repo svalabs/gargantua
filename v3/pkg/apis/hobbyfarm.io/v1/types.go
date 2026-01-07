@@ -409,13 +409,13 @@ type AccessCodeSpec struct {
 }
 
 // +genclient
-// +genclient:noStatus
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 type OneTimeAccessCode struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
-	Spec              OneTimeAccessCodeSpec `json:"spec"`
+	Spec              OneTimeAccessCodeSpec   `json:"spec"`
+	Status            OneTimeAccessCodeStatus `json:"status,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -432,6 +432,29 @@ type OneTimeAccessCodeSpec struct {
 	User              string `json:"user"`
 	RedeemedTimestamp string `json:"redeemed_timestamp"`
 	MaxDuration       string `json:"max_duration"`
+}
+
+type OTACExpiryNotifications struct {
+	// Windows maps a window key (e.g. "3d", "2d", "24h") to
+	// the time when that notification was sent.
+	Windows map[string]metav1.Time `json:"windows,omitempty"`
+}
+
+type OTACNotifications struct {
+	Expiry OTACExpiryNotifications `json:"expiry,omitempty"`
+}
+
+type OneTimeAccessCodeStatus struct {
+	// Example format:
+	//
+	// status:
+	//   notifications:
+	//     expiry:
+	//       windows:
+	//         "72h": "2025-11-22T06:00:00Z"
+	//         "48h": "2025-11-23T06:00:00Z"
+	//         "24h": "2025-11-24T06:00:00Z"
+	Notifications OTACNotifications `json:"notifications,omitempty"`
 }
 
 // +genclient

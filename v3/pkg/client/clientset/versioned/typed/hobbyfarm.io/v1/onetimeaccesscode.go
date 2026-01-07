@@ -39,6 +39,8 @@ type OneTimeAccessCodesGetter interface {
 type OneTimeAccessCodeInterface interface {
 	Create(ctx context.Context, oneTimeAccessCode *hobbyfarmiov1.OneTimeAccessCode, opts metav1.CreateOptions) (*hobbyfarmiov1.OneTimeAccessCode, error)
 	Update(ctx context.Context, oneTimeAccessCode *hobbyfarmiov1.OneTimeAccessCode, opts metav1.UpdateOptions) (*hobbyfarmiov1.OneTimeAccessCode, error)
+	// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
+	UpdateStatus(ctx context.Context, oneTimeAccessCode *hobbyfarmiov1.OneTimeAccessCode, opts metav1.UpdateOptions) (*hobbyfarmiov1.OneTimeAccessCode, error)
 	Delete(ctx context.Context, name string, opts metav1.DeleteOptions) error
 	DeleteCollection(ctx context.Context, opts metav1.DeleteOptions, listOpts metav1.ListOptions) error
 	Get(ctx context.Context, name string, opts metav1.GetOptions) (*hobbyfarmiov1.OneTimeAccessCode, error)

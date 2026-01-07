@@ -404,6 +404,62 @@ func (a *GrpcAccessCodeServer) UpdateOtac(ctx context.Context, otacRequest *acce
 	return &emptypb.Empty{}, nil
 }
 
+func (a *GrpcAccessCodeServer) UpdateOtacStatus(ctx context.Context, otacRequest *accesscodepb.UpdateOneTimeAccessCodeStatusRequest) (*emptypb.Empty, error) {
+	id := otacRequest.GetId()
+	if id == "" {
+		return &emptypb.Empty{}, hferrors.GrpcError(
+			codes.InvalidArgument,
+			"no ID passed in",
+			otacRequest,
+		)
+	}
+
+	retryErr := retry.RetryOnConflict(retry.DefaultRetry, func() error {
+		otac, err := a.otacClient.Get(ctx, id, metav1.GetOptions{})
+		if err != nil {
+			glog.Error(err)
+			return hferrors.GrpcError(
+				codes.Internal,
+				"error while retrieving OTAC %s",
+				otacRequest,
+				otacRequest.GetId(),
+			)
+		}
+
+		status := otacRequest.GetStatus()
+		if status != nil && status.GetNotifications() != nil && status.Notifications.Expiry != nil {
+			windows := status.GetNotifications().GetExpiry().GetWindows()
+			updatedWindows := make(map[string]metav1.Time, len(windows))
+			for window, time := range windows {
+				updatedWindows[window] = metav1.NewTime(time.AsTime())
+			}
+			otac.Status = hfv1.OneTimeAccessCodeStatus{
+				Notifications: hfv1.OTACNotifications{
+					Expiry: hfv1.OTACExpiryNotifications{
+						Windows: updatedWindows,
+					},
+				},
+			}
+		} else if otacRequest.GetStatus() != nil {
+			// if status is provided in updated request but notifications/expiry not specified -> reset status
+			otac.Status = hfv1.OneTimeAccessCodeStatus{}
+		}
+
+		_, updateErr := a.otacClient.UpdateStatus(ctx, otac, metav1.UpdateOptions{})
+		return updateErr
+	})
+
+	if retryErr != nil {
+		return &emptypb.Empty{}, hferrors.GrpcError(
+			codes.Internal,
+			"error attempting to update",
+			otacRequest,
+		)
+	}
+
+	return &emptypb.Empty{}, nil
+}
+
 func (a *GrpcAccessCodeServer) DeleteOtac(ctx context.Context, req *generalpb.ResourceId) (*emptypb.Empty, error) {
 	return util.DeleteHfResource(ctx, req, a.otacClient, "OTAC")
 }
