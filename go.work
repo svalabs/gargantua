@@ -20,6 +20,7 @@ use (
 	./v3/services/coursesvc
 	./v3/services/dbconfigsvc
 	./v3/services/environmentsvc
+	./v3/services/otacremindersvc
 	./v3/services/progresssvc
 	./v3/services/quizsvc
 	./v3/services/rbacsvc
