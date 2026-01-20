@@ -58,15 +58,15 @@ func FromEnv() (*Config, error) {
 	smtpFrom, _ := get("SMTP_FROM", smtpUser, true)
 
 	cc, _ := get("SMTP_CC", "", false)
-	replyTo, _ := get("SMPT_REPLY_TO", "", false)
-	signature, _ := get("SMPT_SIGNATURE", "", false)
+	replyTo, _ := get("SMTP_REPLY_TO", "", false)
+	signature, _ := get("SMTP_SIGNATURE", "", false)
 
 	eventId, _ := get("SCHEDULED_EVENT_ID", "", true)
 
 	windowsRaw, _ := get("NOTIFICATION_WINDOWS", defaultNotificationWindows, false)
 
-	requireTlsRaw, _ := get("SMPT_REQUIRE_TLS", "true", false)
-	requireAuthRaw, _ := get("SMPT_REQUIRE_AUTH", "true", false)
+	requireTlsRaw, _ := get("SMTP_REQUIRE_TLS", "true", false)
+	requireAuthRaw, _ := get("SMTP_REQUIRE_AUTH", "true", false)
 	emailTimeoutRaw, _ := get("EMAIL_TIMEOUT", "5", false)
 	notifierTimeoutRaw, _ := get("NOTIFIER_TIMEOUT", "60", false)
 
