@@ -4,17 +4,28 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
+)
+
+// AuthMechanism controls which SMTP AUTH mechanism is used.
+type AuthMechanism string
+
+const (
+	AuthMechanismAuto  AuthMechanism = ""      // prefer PLAIN, then LOGIN
+	AuthMechanismPlain AuthMechanism = "PLAIN" // force AUTH PLAIN
+	AuthMechanismLogin AuthMechanism = "LOGIN" // force AUTH LOGIN
 )
 
 type Config struct {
-	SMTPHost  string
-	SMTPPort  string
-	SMTPUser  string
-	SMTPPass  string
-	SMTPFrom  string
-	CC        string
-	ReplyTo   string
-	Signature string
+	SMTPHost     string
+	SMTPPort     string
+	SMTPUser     string
+	SMTPPass     string
+	SMTPFrom     string
+	SMTPAuthType string
+	CC           string
+	ReplyTo      string
+	Signature    string
 
 	ScheduledEventId string
 
@@ -53,15 +64,16 @@ func FromEnv() (*Config, error) {
 		return nil, err
 	}
 	smtpPort, _ := get("SMTP_PORT", "587", false)
-	smtpUser, _ := get("SMTP_USER", "", true)
-	smtpPass, _ := get("SMTP_PASSWORD", "", true)
-	smtpFrom, _ := get("SMTP_FROM", smtpUser, true)
+	smtpAuthType, _ := get("SMTP_AUTH_TYPE", "", false)
 
 	cc, _ := get("SMTP_CC", "", false)
 	replyTo, _ := get("SMTP_REPLY_TO", "", false)
 	signature, _ := get("SMTP_SIGNATURE", "", false)
 
-	eventId, _ := get("SCHEDULED_EVENT_ID", "", true)
+	eventId, err := get("SCHEDULED_EVENT_ID", "", true)
+	if err != nil {
+		return nil, err
+	}
 
 	windowsRaw, _ := get("NOTIFICATION_WINDOWS", defaultNotificationWindows, false)
 
@@ -79,6 +91,18 @@ func FromEnv() (*Config, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse env var: SMTP_REQUIRE_AUTH")
 	}
+	smtpUser, err := get("SMTP_USER", "", true)
+	if requireAuth && err != nil {
+		return nil, err
+	}
+	smtpPass, _ := get("SMTP_PASSWORD", "", true)
+	if requireAuth && err != nil {
+		return nil, err
+	}
+	smtpFrom, _ := get("SMTP_FROM", smtpUser, true)
+	if err != nil {
+		return nil, err
+	}
 
 	emailTimeout, err := strconv.ParseInt(emailTimeoutRaw, 10, 64)
 	if err != nil {
@@ -93,14 +117,15 @@ func FromEnv() (*Config, error) {
 	mountPathCA, _ := get("MOUNT_PATH_CA", "", false)
 
 	return &Config{
-		SMTPHost:  smtpHost,
-		SMTPPort:  smtpPort,
-		SMTPUser:  smtpUser,
-		SMTPPass:  smtpPass,
-		SMTPFrom:  smtpFrom,
-		CC:        cc,
-		ReplyTo:   replyTo,
-		Signature: signature,
+		SMTPHost:     smtpHost,
+		SMTPPort:     smtpPort,
+		SMTPUser:     smtpUser,
+		SMTPPass:     smtpPass,
+		SMTPFrom:     smtpFrom,
+		SMTPAuthType: parseAuthType(smtpAuthType),
+		CC:           cc,
+		ReplyTo:      replyTo,
+		Signature:    signature,
 
 		ScheduledEventId: eventId,
 
@@ -111,4 +136,18 @@ func FromEnv() (*Config, error) {
 		NotifierTimeout:        notifierTimeout,
 		MountPathCA:            mountPathCA,
 	}, nil
+}
+
+func parseAuthType(authType string) string {
+	val := strings.ToUpper(strings.TrimSpace(authType))
+	switch val {
+	case "PLAIN":
+		return string(AuthMechanismPlain)
+	case "LOGIN":
+		return string(AuthMechanismLogin)
+	case "AUTO", "":
+		return string(AuthMechanismAuto)
+	default:
+		return val // we don't handle other mechanisms gracefully to indicate to a user with an error message, that his auth type is not supported
+	}
 }

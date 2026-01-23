@@ -9,6 +9,11 @@ import (
 	"os"
 	"strings"
 	"time"
+
+	"github.com/golang/glog"
+
+	auth "github.com/hobbyfarm/gargantua/services/otacremindersvc/v3/internal/auth"
+	"github.com/hobbyfarm/gargantua/services/otacremindersvc/v3/internal/config"
 )
 
 type Client struct {
@@ -36,7 +41,15 @@ type Client struct {
 	// "Best regards,\nHobbyFarm OTAC Bot"
 	Signature string
 
-	MountPathCA string // if not empty, add CA for email server
+	// MountPathCA, if not empty, points to a CA bundle PEM file that is added
+	// to the system cert pool for TLS verification.
+	MountPathCA string
+
+	// AuthMechanism selects which AUTH method to use.
+	// - AuthMechanismAuto (default): Detect if PLAIN or LOGIN auth is available and prefer PLAIN auth over LOGIN auth.
+	// - AuthMechanismPlain: force PLAIN (error if not supported)
+	// - AuthMechanismLogin: force LOGIN (error if not supported)
+	AuthMechanism config.AuthMechanism
 }
 
 const defaultTimeout = 5 * time.Second
@@ -44,11 +57,14 @@ const defaultTimeout = 5 * time.Second
 // Send sends a simple plain-text email to a single primary recipient.
 // Optionally adds CC recipients and a Reply-To address configured on the client.
 func (c *Client) Send(to, subject, body string) error {
-	if c.Host == "" || c.Port == "" {
+	host := strings.TrimSpace(c.Host)
+	port := strings.TrimSpace(c.Port)
+
+	if host == "" || port == "" {
 		return fmt.Errorf("email: Host and Port must be set")
 	}
 
-	addr := net.JoinHostPort(c.Host, c.Port)
+	addr := net.JoinHostPort(host, port)
 	timeout := c.Timeout
 	if timeout <= 0 {
 		timeout = defaultTimeout
@@ -60,31 +76,31 @@ func (c *Client) Send(to, subject, body string) error {
 	}
 	defer conn.Close()
 
-	client, err := smtp.NewClient(conn, c.Host)
+	client, err := smtp.NewClient(conn, host)
 	if err != nil {
 		return fmt.Errorf("email: new client: %w", err)
 	}
 	defer client.Close()
 
+	// Build root CA pool (system + optional custom CA)
 	rootCAs, err := x509.SystemCertPool()
 	if err != nil {
 		rootCAs = x509.NewCertPool()
 	}
-
 	if c.MountPathCA != "" {
 		caCert, err := os.ReadFile(c.MountPathCA)
 		if err != nil {
-			return fmt.Errorf("load ca cert: %w", err)
+			return fmt.Errorf("email: load ca cert: %w", err)
 		}
 		if ok := rootCAs.AppendCertsFromPEM(caCert); !ok {
-			return fmt.Errorf("append ca cert: no certs found")
+			return fmt.Errorf("email: append ca cert: no certs found")
 		}
 	}
 
 	// STARTTLS (preferred, and required when RequireTLS is true)
 	if ok, _ := client.Extension("STARTTLS"); ok {
 		tlsConfig := &tls.Config{
-			ServerName: c.Host,
+			ServerName: host,
 			RootCAs:    rootCAs,
 		}
 		if err := client.StartTLS(tlsConfig); err != nil {
@@ -94,22 +110,31 @@ func (c *Client) Send(to, subject, body string) error {
 		return fmt.Errorf("email: server does not support STARTTLS and RequireTLS is true")
 	}
 
-	// AUTH (only after TLS)
-	if c.RequireAuth && (c.User == "" || c.Password == "") {
-		return fmt.Errorf("email: RequireAuth is true but no credentials provided")
-	}
-
-	if c.User != "" && c.Password != "" {
-		auth := smtp.PlainAuth("", c.User, c.Password, c.Host)
-		if err := client.Auth(auth); err != nil {
-			return fmt.Errorf("email: auth: %w", err)
+	// AUTH (only after TLS). Preferred, and required when RequireAuth is true.
+	authn, authType, err := c.authenticate(client)
+	if err != nil {
+		if c.RequireAuth {
+			return fmt.Errorf("email: RequireAuth is true but authentication failed: %w", err)
+		} else {
+			glog.Warningf("email: authentication failed... skipping authentication because it is not required: %v", err)
 		}
+	}
+	// Actual authentication needs to be done here, because connection may fail if TLS is not enabled (even if RequireAuth is false).
+	if err := client.Auth(authn); err != nil {
+		return fmt.Errorf("email: auth (%s): %w", authType, err)
 	}
 
 	from := sanitizeHeader(c.From)
 	to = sanitizeHeader(to)
 	subject = sanitizeHeader(subject)
 	replyTo := sanitizeHeader(c.ReplyTo)
+
+	if from == "" {
+		return fmt.Errorf("email: From must not be empty")
+	}
+	if to == "" {
+		return fmt.Errorf("email: To must not be empty")
+	}
 
 	ccAddrs := splitAndCleanAddresses(c.CC) // []string, already sanitized for headers/rcpt
 	var ccHeader string
@@ -151,6 +176,95 @@ func (c *Client) Send(to, subject, body string) error {
 	_ = client.Quit()
 
 	return nil
+}
+
+func (c *Client) authenticate(client *smtp.Client) (smtp.Auth, config.AuthMechanism, error) {
+
+	user := strings.TrimSpace(c.User)
+	pass := c.Password
+
+	if user == "" || pass == "" {
+		return nil, "", fmt.Errorf("email: no credentials provided")
+	}
+
+	// starting from here, username and password are defined
+
+	// Check if server supports AUTH at all
+	ok, mechList := client.Extension("AUTH")
+	if !ok {
+		return nil, "", fmt.Errorf("email: server does not advertise AUTH")
+	}
+
+	mechs := parseAuthMechanisms(mechList)
+	chosenAuthMech, err := chooseAuthMechanism(c.AuthMechanism, mechs)
+	if err != nil {
+		return nil, "", fmt.Errorf("email: auth mechanism selection failed: %w", err)
+	}
+
+	switch chosenAuthMech {
+	case "PLAIN":
+		return smtp.PlainAuth("", user, pass, c.Host), chosenAuthMech, nil
+	case "LOGIN":
+		return auth.LoginAuth(user, pass, c.Host), chosenAuthMech, nil
+	default:
+		return nil, "", fmt.Errorf("email: unsupported chosen auth mechanism %q", chosenAuthMech)
+	}
+}
+
+// parseAuthMechanisms parses an AUTH capability string like "PLAIN LOGIN XOAUTH2"
+// into a slice of upper-case mechanism names.
+func parseAuthMechanisms(s string) []string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return nil
+	}
+	parts := strings.Fields(s)
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		p = strings.ToUpper(strings.TrimSpace(p))
+		if p == "" {
+			continue
+		}
+		out = append(out, p)
+	}
+	return out
+}
+
+// chooseAuthMechanism decides which mechanism to use, given the client's preference
+// and the server's advertised mechanisms.
+func chooseAuthMechanism(pref config.AuthMechanism, serverMechs []string) (config.AuthMechanism, error) {
+	// Build a quick lookup map
+	supported := make(map[string]bool, len(serverMechs))
+	for _, m := range serverMechs {
+		supported[m] = true
+	}
+
+	switch pref {
+	case config.AuthMechanismPlain:
+		if !supported["PLAIN"] {
+			return "", fmt.Errorf("server does not support AUTH PLAIN")
+		}
+		return config.AuthMechanismPlain, nil
+
+	case config.AuthMechanismLogin:
+		if !supported["LOGIN"] {
+			return "", fmt.Errorf("server does not support AUTH LOGIN")
+		}
+		return config.AuthMechanismLogin, nil
+
+	case config.AuthMechanismAuto:
+		// Auto: prefer PLAIN, fall back to LOGIN
+		if supported["PLAIN"] {
+			return config.AuthMechanismPlain, nil
+		}
+		if supported["LOGIN"] {
+			return config.AuthMechanismLogin, nil
+		}
+		return "", fmt.Errorf("server supports no known auth mechanisms (have: %v)", serverMechs)
+
+	default:
+		return "", fmt.Errorf("unknown AuthMechanism %q", pref)
+	}
 }
 
 // sanitizeHeader removes CR/LF to prevent header injection.
