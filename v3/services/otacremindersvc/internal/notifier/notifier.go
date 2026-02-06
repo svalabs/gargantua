@@ -1,9 +1,11 @@
 package notifier
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/golang/glog"
@@ -19,6 +21,21 @@ import (
 	generalpb "github.com/hobbyfarm/gargantua/v3/protos/general"
 	userpb "github.com/hobbyfarm/gargantua/v3/protos/user"
 )
+
+type EmailTemplateData struct {
+	RecipientEmail                  string
+	RemainingDays                   int
+	RemainingHours                  int
+	RemainingHoursTotal             int
+	ActivationDateTimeUTC           string
+	ExpirationDateTimeUTC           string
+	ActivationDateTimeEastern       string
+	ExpirationDateTimeEastern       string
+	ActivationDateTimeCentralEurope string
+	ExpirationDateTimeCentralEurope string
+	MaxDuration                     string
+	WindowKey                       string
+}
 
 func Run(
 	ctx context.Context,
@@ -171,7 +188,7 @@ func Run(
 				"expiry_utc", expiry,
 			)
 
-			if err := sendExpiryMailForWindow(emailClient, emailAddr, key, remaining, expiry, redeemed, maxDurationStr); err != nil {
+			if err := sendExpiryMailForWindow(emailClient, emailAddr, key, remaining, expiry, redeemed, maxDurationStr, cfg.NotificationSubjectTemplate, cfg.NotificationBodyTemplate); err != nil {
 				glog.Error("failed to send expiry email",
 					"otac", otacId,
 					"userID", userID,
@@ -270,35 +287,60 @@ func sendExpiryMailForWindow(
 	expiry time.Time,
 	redeemed time.Time,
 	maxDurationStr string,
+	subjectTemplate string,
+	bodyTemplate string,
 ) error {
-	subject := fmt.Sprintf("Your one-time access expires in less than %s", windowKey)
-
 	hoursLeft := int(remaining.Hours())
 	if hoursLeft < 0 {
 		hoursLeft = 0
 	}
 
-	body := fmt.Sprintf(`Hello @%s,
+	// load locations; fall back to UTC if unavailable
+	locNY, err := time.LoadLocation("America/New_York")
+	if err != nil {
+		return fmt.Errorf("notifier: failed to parse EST time: %w", err)
+	}
+	locBerlin, err := time.LoadLocation("Europe/Berlin")
+	if err != nil {
+		return fmt.Errorf("notifier: failed to parse CET time: %w", err)
+	}
 
-your one-time access was redeemed at:
+	redeemedUTCStr := redeemed.UTC().Format(time.RFC1123)
+	redeemedESTStr := redeemed.In(locNY).Format(time.RFC1123)
+	redeemedCETStr := redeemed.In(locBerlin).Format(time.RFC1123)
 
-    %s (UTC)
+	expiryUTCStr := expiry.UTC().Format(time.RFC1123)
+	expiryESTStr := expiry.In(locNY).Format(time.RFC1123)
+	expiryCETStr := expiry.In(locBerlin).Format(time.RFC1123)
 
-with a maximum duration of %s.
-It will expire at:
+	data := EmailTemplateData{
+		RecipientEmail:                  to,
+		RemainingDays:                   hoursLeft / 24,
+		RemainingHours:                  hoursLeft % 24,
+		RemainingHoursTotal:             hoursLeft,
+		ActivationDateTimeUTC:           redeemedUTCStr,
+		ExpirationDateTimeUTC:           expiryUTCStr,
+		ActivationDateTimeEastern:       redeemedESTStr,
+		ExpirationDateTimeEastern:       expiryESTStr,
+		ActivationDateTimeCentralEurope: redeemedCETStr,
+		ExpirationDateTimeCentralEurope: expiryCETStr,
+		MaxDuration:                     maxDurationStr,
+		WindowKey:                       windowKey,
+	}
 
-    %s (UTC)
+	subjTmpl := template.Must(template.New("subject").Parse(subjectTemplate))
+	bodyTmpl := template.Must(template.New("body").Parse(bodyTemplate))
 
-That is in approximately %d hour(s).
+	var subjectBuf, bodyBuf bytes.Buffer
+	if err = subjTmpl.Execute(&subjectBuf, data); err != nil {
+		return fmt.Errorf("notifier: execute subject template: %w", err)
+	}
+	if err = bodyTmpl.Execute(&bodyBuf, data); err != nil {
+		return fmt.Errorf("notifier: execute body template: %w", err)
+	}
 
-If you still need access, please log in again or request a new token.
-`,
-		to,
-		redeemed.Format(time.RFC3339),
-		maxDurationStr,
-		expiry.Format(time.RFC3339),
-		hoursLeft,
-	)
+	subject := subjectBuf.String()
+	body := bodyBuf.String()
 
 	return emailClient.Send(to, subject, body)
 }

@@ -50,6 +50,8 @@ type Client struct {
 	// - AuthMechanismPlain: force PLAIN (error if not supported)
 	// - AuthMechanismLogin: force LOGIN (error if not supported)
 	AuthMechanism config.AuthMechanism
+
+	ContentType config.EmailBodyContentType // content type for email body only supports "text/plain" or "text/html" and defaults to "text/plain"
 }
 
 const defaultTimeout = 5 * time.Second
@@ -142,7 +144,7 @@ func (c *Client) Send(to, subject, body string) error {
 		ccHeader = strings.Join(ccAddrs, ", ")
 	}
 
-	msg := buildPlainTextMessage(from, to, ccHeader, replyTo, subject, body, c.Signature)
+	msg := buildPlainTextMessage(from, to, ccHeader, replyTo, subject, body, c.Signature, c.ContentType)
 
 	if err := client.Mail(from); err != nil {
 		return fmt.Errorf("email: mail from: %w", err)
@@ -295,7 +297,7 @@ func splitAndCleanAddresses(s string) []string {
 
 // buildPlainTextMessage builds a simple UTF-8 plain-text MIME message,
 // optionally including Cc and Reply-To headers and appending a signature after the body.
-func buildPlainTextMessage(from, to, cc, replyTo, subject, body, signature string) string {
+func buildPlainTextMessage(from, to, cc, replyTo, subject, body, signature string, contentType config.EmailBodyContentType) string {
 	var b strings.Builder
 
 	b.WriteString("From: ")
@@ -323,7 +325,7 @@ func buildPlainTextMessage(from, to, cc, replyTo, subject, body, signature strin
 	b.WriteString("\r\n")
 
 	b.WriteString("MIME-Version: 1.0\r\n")
-	b.WriteString("Content-Type: text/plain; charset=UTF-8\r\n")
+	b.WriteString(fmt.Sprintf("Content-Type: %s; charset=UTF-8\r\n", contentType))
 	b.WriteString("\r\n")
 
 	// Body

@@ -16,6 +16,8 @@ import (
 
 	accesscodepb "github.com/hobbyfarm/gargantua/v3/protos/accesscode"
 	userpb "github.com/hobbyfarm/gargantua/v3/protos/user"
+
+	_ "time/tzdata"
 )
 
 var (
@@ -46,18 +48,20 @@ func main() {
 	acClient := accesscodepb.NewAccessCodeSvcClient(connections[microservices.AccessCode])
 	userClient := userpb.NewUserSvcClient(connections[microservices.User])
 	emailClient := &email.Client{
-		Host:        cfg.SMTPHost,
-		Port:        cfg.SMTPPort,
-		User:        cfg.SMTPUser,
-		Password:    cfg.SMTPPass,
-		From:        cfg.SMTPFrom,
-		RequireTLS:  cfg.RequireTLS,
-		RequireAuth: cfg.RequireAuth,
-		Timeout:     time.Duration(cfg.EmailTimeout) * time.Second,
-		CC:          cfg.CC,
-		Signature:   cfg.Signature,
-		ReplyTo:     cfg.ReplyTo,
-		MountPathCA: cfg.MountPathCA,
+		Host:          cfg.SMTPHost,
+		Port:          cfg.SMTPPort,
+		User:          cfg.SMTPUser,
+		Password:      cfg.SMTPPass,
+		From:          cfg.SMTPFrom,
+		RequireTLS:    cfg.RequireTLS,
+		RequireAuth:   cfg.RequireAuth,
+		Timeout:       time.Duration(cfg.EmailTimeout) * time.Second,
+		CC:            cfg.CC,
+		Signature:     cfg.Signature,
+		ReplyTo:       cfg.ReplyTo,
+		MountPathCA:   cfg.MountPathCA,
+		ContentType:   cfg.ContentType,
+		AuthMechanism: config.AuthMechanism(cfg.SMTPAuthType),
 	}
 
 	// graceful shutdown
