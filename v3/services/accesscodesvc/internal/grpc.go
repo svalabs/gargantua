@@ -18,6 +18,7 @@ import (
 	scheduledeventpb "github.com/hobbyfarm/gargantua/v3/protos/scheduledevent"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
@@ -352,6 +353,11 @@ func (a *GrpcAccessCodeServer) GetOtac(ctx context.Context, req *generalpb.GetRe
 
 	glog.V(2).Infof("retrieved OTAC %s", otac.Name)
 
+	windows := make(map[string]*timestamppb.Timestamp, len(otac.Status.Notifications.Expiry.Windows))
+	for window, t := range otac.Status.Notifications.Expiry.Windows {
+		windows[window] = timestamppb.New(t.Time)
+	}
+
 	return &accesscodepb.OneTimeAccessCode{
 		Id:                otac.Name,
 		Uid:               string(otac.UID),
@@ -359,6 +365,13 @@ func (a *GrpcAccessCodeServer) GetOtac(ctx context.Context, req *generalpb.GetRe
 		RedeemedTimestamp: otac.Spec.RedeemedTimestamp,
 		MaxDuration:       otac.Spec.MaxDuration,
 		Labels:            otac.Labels,
+		Status: &accesscodepb.OneTimeAccessCodeStatus{
+			Notifications: &accesscodepb.OTACNotifications{
+				Expiry: &accesscodepb.ExpiryNotification{
+					Windows: windows,
+				},
+			},
+		},
 	}, nil
 }
 
@@ -452,8 +465,9 @@ func (a *GrpcAccessCodeServer) UpdateOtacStatus(ctx context.Context, otacRequest
 	if retryErr != nil {
 		return &emptypb.Empty{}, hferrors.GrpcError(
 			codes.Internal,
-			"error attempting to update",
+			"error attempting to update: %v",
 			otacRequest,
+			retryErr,
 		)
 	}
 
@@ -488,6 +502,10 @@ func (a *GrpcAccessCodeServer) ListOtac(ctx context.Context, listOptions *genera
 
 	preparedOtacs := []*accesscodepb.OneTimeAccessCode{} // must be declared this way so as to JSON marshal into [] instead of null
 	for _, otac := range otacs {
+		windows := make(map[string]*timestamppb.Timestamp, len(otac.Status.Notifications.Expiry.Windows))
+		for window, t := range otac.Status.Notifications.Expiry.Windows {
+			windows[window] = timestamppb.New(t.Time)
+		}
 		preparedOtacs = append(preparedOtacs, &accesscodepb.OneTimeAccessCode{
 			Id:                otac.Name,
 			Uid:               string(otac.UID),
@@ -495,6 +513,13 @@ func (a *GrpcAccessCodeServer) ListOtac(ctx context.Context, listOptions *genera
 			RedeemedTimestamp: otac.Spec.RedeemedTimestamp,
 			MaxDuration:       otac.Spec.MaxDuration,
 			Labels:            otac.Labels,
+			Status: &accesscodepb.OneTimeAccessCodeStatus{
+				Notifications: &accesscodepb.OTACNotifications{
+					Expiry: &accesscodepb.ExpiryNotification{
+						Windows: windows,
+					},
+				},
+			},
 		})
 	}
 

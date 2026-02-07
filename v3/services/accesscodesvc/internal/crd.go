@@ -28,7 +28,8 @@ func (aci AccessCodeCRDInstaller) GenerateCRDs() []crder.CRD {
 					cv.
 						WithColumn("User", ".spec.user").
 						WithColumn("Redeemed", ".spec.redeemed_timestamp").
-						WithColumn("MaxDuration", ".spec.max_duration")
+						WithColumn("MaxDuration", ".spec.max_duration").
+						WithStatus()
 				})
 		}),
 	}
