@@ -29,11 +29,13 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
+	batchv1 "k8s.io/client-go/kubernetes/typed/batch/v1"
 	corev1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
 const (
 	vmSetFinalizer = "finalizer.hobbyfarm.io/vmset"
+	runHashLabel   = "runHash"
 )
 
 type VMController struct {
@@ -43,6 +45,7 @@ type VMController struct {
 	configMapClient   corev1.ConfigMapInterface
 	environmentClient environmentpb.EnvironmentSvcClient
 	secretClient      corev1.SecretInterface
+	jobClient         batchv1.JobInterface
 	HFVMClient        v1.VirtualMachineInterface
 	terraformClient   *GrpcTerraformServer
 	vmClaimClient     vmclaimpb.VMClaimSvcClient
@@ -62,7 +65,6 @@ func NewVMController(
 	vmTemplateClient vmtemplatepb.VMTemplateSvcClient,
 	ctx context.Context,
 ) (*VMController, error) {
-	kubeClient.CoreV1().ConfigMaps("")
 	vmInformer := hfInformerFactory.Hobbyfarm().V1().VirtualMachines().Informer()
 	delayingWorkqueueController := *controllers.NewDelayingWorkqueueController(
 		ctx,
@@ -79,6 +81,7 @@ func NewVMController(
 		configMapClient:             kubeClient.CoreV1().ConfigMaps(util.GetReleaseNamespace()),
 		environmentClient:           environmentClient,
 		secretClient:                kubeClient.CoreV1().Secrets(util.GetReleaseNamespace()),
+		jobClient:                   kubeClient.BatchV1().Jobs(util.GetReleaseNamespace()),
 		HFVMClient:                  hfClient.HobbyfarmV1().VirtualMachines(util.GetReleaseNamespace()),
 		terraformClient:             terraformClient,
 		vmClaimClient:               vmClaimClient,
@@ -113,9 +116,10 @@ func (v *VMController) Reconcile(objName string) error {
 
 	// trigger reconcile on vmClaims only when associated VM is running
 	// this should avoid triggering unwanted reconciles of VMClaims until the VM's are running
-	if vm.GetVmClaimId() != "" && vm.GetStatus().GetStatus() == string(hfv1.VmStatusRunning) {
+	if vm.GetVmClaimId() != "" && (vm.GetStatus().GetStatus() == string(hfv1.VmStatusRunning) || vm.GetStatus().GetStatus() == string(hfv1.VmStatusErrorDuringProvisioning)) {
 		v.vmClaimClient.AddToWorkqueue(v.Context, &generalpb.ResourceId{Id: vm.GetVmClaimId()})
 	}
+
 	if vm.GetStatus().GetTainted() && vm.GetDeletionTimestamp() == nil {
 		err, requeue := v.deleteVM(vm)
 		v.handleRequeue(err, requeue, vm.GetId())
@@ -176,11 +180,19 @@ func (v *VMController) handleDeletion(vm *vmpb.VM) (error, bool) {
 	} else if err != nil {
 		// Something went wrong during the terraform state deletion process. Let's requeue and try again!
 		return err, true
-	} else {
-		// The terraform state was deleted successfully.
-		// We still need to requeue, remove the finalizers and confirm that the vm was deleted successfully
-		return nil, true
 	}
+
+	if vm.GetStatus().GetStatus() == string(hfv1.VmStatusErrorDuringProvisioning) {
+		// When we encountered errors during the creation the finalizers are not limiting us in deleting the VM
+		_, err := v.terraformClient.RemoveFinalizerFromState(v.Context, &generalpb.ResourceId{Id: vm.GetStatus().GetTfstate()})
+		if err != nil {
+			return err, true
+		}
+		return v.updateAndVerifyVMDeletion(vm)
+
+	}
+
+	return nil, true
 }
 
 // returns an error and a boolean of requeue
@@ -396,10 +408,37 @@ func (v *VMController) handleProvision(vm *vmpb.VM) (error, bool) {
 			if e.GetStatus().GetOutputs() != "" {
 				tfExec = e
 				hasValidExec = true
+				break
 			}
 		}
 
 		if !hasValidExec {
+			runHash := tfExec.GetRunHash()
+			jobList, err := v.jobClient.List(v.Context, metav1.ListOptions{LabelSelector: fmt.Sprintf("%s=%s", runHashLabel, runHash)})
+
+			if err != nil {
+				return err, true
+			}
+
+			for _, job := range jobList.Items {
+				conditions := job.Status.Conditions
+				for _, condition := range conditions {
+					if condition.Reason == "BackoffLimitExceeded" {
+						_, err = v.VMClient.UpdateVMStatus(v.Context, &vmpb.UpdateVMStatusRequest{
+							Id:     vm.GetId(),
+							Status: string(hfv1.VmStatusErrorDuringProvisioning),
+						})
+
+						if err != nil {
+							return err, true
+						}
+
+						// The VM will never be ready as the job has failed. We set the corresponding VM status and remove this VM from the queue
+						return nil, false
+					}
+				}
+			}
+
 			return nil, true
 		}
 

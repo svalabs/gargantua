@@ -167,6 +167,22 @@ func (s *GrpcTerraformServer) DeleteCollectionState(ctx context.Context, listOpt
 	return util.DeleteHfCollection(ctx, listOptions, s.stateClient, "state")
 }
 
+func (s *GrpcTerraformServer) RemoveFinalizerFromState(ctx context.Context, req *generalpb.ResourceId) (*emptypb.Empty, error) {
+	state, err := util.GenericHfGetter(ctx, &generalpb.GetRequest{Id: req.GetId()}, s.stateClient, s.stateLister.States(util.GetReleaseNamespace()), "state", s.stateSynced())
+	if err != nil {
+		return nil, err
+	}
+
+	state.SetFinalizers([]string{})
+	_, err = s.stateClient.Update(ctx, state, metav1.UpdateOptions{})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return nil, nil
+}
+
 func (s *GrpcTerraformServer) ListState(ctx context.Context, listOptions *generalpb.ListOptions) (*terraformpb.ListStateResponse, error) {
 	doLoadFromCache := listOptions.GetLoadFromCache()
 	var states []tfv1.State

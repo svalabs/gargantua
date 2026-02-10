@@ -8,10 +8,11 @@ import (
 type VmStatus string
 
 const (
-	VmStatusRFP         VmStatus = "readyforprovisioning"
-	VmStatusProvisioned VmStatus = "provisioned"
-	VmStatusRunning     VmStatus = "running"
-	VmStatusTerminating VmStatus = "terminating"
+	VmStatusRFP                     VmStatus = "readyforprovisioning"
+	VmStatusProvisioned             VmStatus = "provisioned"
+	VmStatusRunning                 VmStatus = "running"
+	VmStatusTerminating             VmStatus = "terminating"
+	VmStatusErrorDuringProvisioning VmStatus = "errorduringprovisioning"
 )
 
 // +genclient
@@ -83,11 +84,11 @@ type VirtualMachineClaimSpec struct {
 }
 
 type VirtualMachineClaimStatus struct {
-	BindMode           string `json:"bind_mode"`
-	StaticBindAttempts int    `json:"static_bind_attempts"`
-	Bound              bool   `json:"bound"`
-	Ready              bool   `json:"ready"`
-	Tainted            bool   `json:"tainted"` // If tainted, we should delete the VM's underneath then delete ourself...
+	BindMode string `json:"bind_mode"`
+	Error    bool   `json:"error"`
+	Bound    bool   `json:"bound"`
+	Ready    bool   `json:"ready"`
+	Tainted  bool   `json:"tainted"` // If tainted, we should delete the VM's underneath then delete ourself...
 }
 
 type VirtualMachineClaimVM struct {
